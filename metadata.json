@@ -1,0 +1,6 @@
+{
+  "name": "Quản Lý Đồng Phục Tài Xế",
+  "description": "Hệ thống quản lý cấp phát đồng phục tài xế, theo dõi tiền cọc thu - hoàn tiền thu hồi vi phạm và sổ ghi chú chi tiêu nội bộ kèm hóa đơn chuyển khoản.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
