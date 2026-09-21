@@ -146,6 +146,20 @@ export default function App() {
     saveStoredDrivers(drivers);
   }, [drivers]);
 
+  // Auto-open driver portal if URL requests it
+  useEffect(() => {
+    if (
+      typeof window !== 'undefined' &&
+      (window.location.hash === '#diemdanh' ||
+        window.location.hash === '#driver' ||
+        window.location.search.includes('portal=driver') ||
+        window.location.search.includes('driver=true') ||
+        window.location.search.includes('checkin=1'))
+    ) {
+      setIsDriverPortalOpen(true);
+    }
+  }, []);
+
   useEffect(() => {
     saveStoredExpenses(expenses);
   }, [expenses]);
@@ -637,12 +651,28 @@ export default function App() {
     reloadLogs();
   };
 
-  // MANDATORY LOGIN: User MUST log in before viewing data!
+  // MANDATORY LOGIN: User MUST log in before viewing admin data!
+  // BUT DRIVERS CAN ACCESS ATTENDANCE PORTAL FROM OUTSIDE!
   if (!adminUser) {
     return (
-      <AdminLockScreen
-        onLoginSuccess={handleLoginSuccess}
-      />
+      <>
+        <AdminLockScreen
+          onLoginSuccess={handleLoginSuccess}
+          onOpenDriverPortal={() => setIsDriverPortalOpen(true)}
+        />
+
+        {/* Standalone Driver Portal Modal for external drivers */}
+        <DriverPortalModal
+          isOpen={isDriverPortalOpen}
+          onClose={() => setIsDriverPortalOpen(false)}
+          drivers={drivers}
+          currentDriverSession={driverSession}
+          onDriverLogin={handleDriverLogin}
+          onDriverLogout={handleDriverLogout}
+          todayAttendanceList={attendanceList}
+          onSubmitAttendance={handleSubmitAttendance}
+        />
+      </>
     );
   }
 
