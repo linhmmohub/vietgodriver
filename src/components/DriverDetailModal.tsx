@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   X, 
   User, 
@@ -16,7 +16,10 @@ import {
   Briefcase,
   Clock,
   Hourglass,
-  UserCheck
+  UserCheck,
+  Key,
+  Copy,
+  Check
 } from 'lucide-react';
 import { Driver } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -34,9 +37,18 @@ export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
   onEdit,
   onApprove,
 }) => {
+  const [isCopied, setIsCopied] = useState(false);
+
   if (!driver) return null;
 
   const debt = Math.max(0, driver.uniformFeeRequired - driver.uniformFeePaid);
+  const secretCode = driver.secretCode || (driver.phone ? driver.phone.replace(/\D/g, '').slice(-4) : '1234') || '1234';
+
+  const handleCopySecret = () => {
+    navigator.clipboard.writeText(secretCode);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
 
   const handlePrint = () => {
     window.print();
@@ -153,6 +165,48 @@ export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
                   Ghi chú dự bị: {driver.rejectionReason}
                 </span>
               )}
+            </div>
+          </div>
+
+          {/* BOX MÃ KHÓA BÍ MẬT & ĐIỂM DANH */}
+          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center space-x-3">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-500 shrink-0">
+                <Key className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                    Mã Khóa Bí Mật Điểm Danh Của Tài Xế:
+                  </span>
+                  <span className="font-mono text-sm font-black text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 rounded-lg border border-amber-300/80 dark:border-amber-700/80 tracking-wider">
+                    {secretCode}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Tài xế có thể nhập mã này hoặc 4 số cuối SĐT (<span className="font-mono font-bold text-slate-700 dark:text-slate-300">{(driver.phone || '').replace(/\D/g, '').slice(-4)}</span>) để điểm danh.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleCopySecret}
+                className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-amber-300/80 dark:border-amber-700 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                {isCopied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Đã sao chép!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Sao chép mã</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 

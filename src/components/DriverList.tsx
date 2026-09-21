@@ -22,7 +22,8 @@ import {
   Briefcase,
   Clock,
   Hourglass,
-  UserCheck
+  UserCheck,
+  Key
 } from 'lucide-react';
 import { Driver } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -341,7 +342,7 @@ export const DriverList: React.FC<DriverListProps> = ({
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-2 mt-1 text-xs">
+                        <div className="flex flex-wrap items-center gap-2 mt-1 text-xs">
                           {/* Số điện thoại tap-to-call */}
                           <a 
                             href={`tel:${driver.phone}`}
@@ -356,6 +357,14 @@ export const DriverList: React.FC<DriverListProps> = ({
                               {driver.licensePlate}
                             </span>
                           )}
+
+                          <span 
+                            title="Mã bí mật điểm danh của tài xế"
+                            className="bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800 font-mono font-bold text-[10px] flex items-center gap-1"
+                          >
+                            <Key className="w-2.5 h-2.5 text-amber-500" />
+                            PIN: {driver.secretCode || (driver.phone ? driver.phone.replace(/\D/g, '').slice(-4) : '1234') || '1234'}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -625,7 +634,7 @@ export const DriverList: React.FC<DriverListProps> = ({
                                 {driver.workingType === 'parttime' ? 'Part-time' : 'Full-time'}
                               </span>
                             </div>
-                            <div className="flex items-center text-slate-500 dark:text-slate-400 space-x-2 mt-0.5 text-[11px]">
+                            <div className="flex flex-wrap items-center text-slate-500 dark:text-slate-400 gap-2 mt-0.5 text-[11px]">
                               <a href={`tel:${driver.phone}`} className="flex items-center hover:text-blue-500">
                                 <Phone className="w-3 h-3 mr-1 text-slate-400" />
                                 {driver.phone}
@@ -635,6 +644,13 @@ export const DriverList: React.FC<DriverListProps> = ({
                                   {driver.licensePlate}
                                 </span>
                               )}
+                              <span 
+                                title="Mã bí mật điểm danh"
+                                className="bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 px-1 rounded border border-amber-200 dark:border-amber-800 font-mono font-bold text-[10px] flex items-center gap-0.5"
+                              >
+                                <Key className="w-2.5 h-2.5 text-amber-500" />
+                                PIN: {driver.secretCode || (driver.phone ? driver.phone.replace(/\D/g, '').slice(-4) : '1234') || '1234'}
+                              </span>
                             </div>
                             {driver.joinDate && (
                               <div className="text-[10px] text-slate-400 mt-0.5 flex items-center">
