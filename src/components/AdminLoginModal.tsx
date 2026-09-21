@@ -29,7 +29,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   onLoginSuccess,
   customMessage,
 }) => {
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,21 +52,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         setError(null);
         onClose();
       } else {
-        setError(result.error || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+        setError(result.error || 'Đăng nhập thất bại. Tên đăng nhập hoặc mật khẩu không chính xác.');
       }
     }, 200);
-  };
-
-  const handleQuickFillAdmin = () => {
-    setUsername('admin');
-    setPassword('admin123');
-    setError(null);
-  };
-
-  const handleQuickFillStaff = () => {
-    setUsername('nhanvien');
-    setPassword('nv123');
-    setError(null);
   };
 
   return (
@@ -92,10 +80,10 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-extrabold text-white tracking-tight flex items-center gap-1.5">
-                Đăng Nhập Tài Khoản
+                Đăng Nhập Quản Trị
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Xác thực quyền Admin Tổng hoặc Cấp Dưới (Nhân Viên)
+                Cổng xác thực nội bộ dành cho Ban Quản Lý & Điều Phối
               </p>
             </div>
           </div>
@@ -127,7 +115,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Nhập username (admin hoặc nhanvien)..."
+              placeholder="Nhập tên tài khoản được cấp..."
               className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition"
               required
               autoFocus
@@ -152,7 +140,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -173,32 +161,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             </button>
           </div>
 
-          {/* Quick fills */}
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold text-center mb-1">
-              Điền nhanh tài khoản:
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={handleQuickFillAdmin}
-                className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 text-xs font-semibold flex flex-col items-center text-center transition active:scale-95"
-              >
-                <span className="font-bold flex items-center"><Shield className="w-3 h-3 mr-1" /> Admin Tổng</span>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">admin / admin123</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleQuickFillStaff}
-                className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold flex flex-col items-center text-center transition active:scale-95"
-              >
-                <span className="font-bold flex items-center"><Car className="w-3 h-3 mr-1" /> Cấp Dưới</span>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">nhanvien / nv123</span>
-              </button>
-            </div>
-          </div>
+          <p className="text-center text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+            Hệ thống bảo mật nội bộ. Mọi hoạt động đăng nhập đều được lưu vào nhật ký hệ thống.
+          </p>
         </form>
       </div>
     </div>

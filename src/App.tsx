@@ -769,11 +769,11 @@ export default function App() {
       </main>
 
       {/* Mobile Floating Action Button (FAB) */}
-      <div className="sm:hidden fixed bottom-5 right-4 z-30">
+      <div className="md:hidden fixed bottom-[70px] right-4 z-30">
         {activeTab === 'drivers' && (
           <button
             onClick={handleOpenNewDriver}
-            className="h-14 w-14 rounded-full bg-amber-500 text-slate-950 shadow-xl flex items-center justify-center font-bold active:scale-90 transition"
+            className="h-13 w-13 rounded-2xl bg-amber-500 text-slate-950 shadow-2xl flex items-center justify-center font-bold active:scale-90 transition border-2 border-slate-950"
             aria-label="Thêm tài xế mới"
           >
             <Plus className="w-6 h-6 stroke-[3]" />
@@ -782,7 +782,7 @@ export default function App() {
         {activeTab === 'expenses' && isSuperAdmin && (
           <button
             onClick={handleOpenNewExpense}
-            className="h-14 w-14 rounded-full bg-emerald-500 text-slate-950 shadow-xl flex items-center justify-center font-bold active:scale-90 transition"
+            className="h-13 w-13 rounded-2xl bg-emerald-500 text-slate-950 shadow-2xl flex items-center justify-center font-bold active:scale-90 transition border-2 border-slate-950"
             aria-label="Ghi khoản chi mới"
           >
             <Plus className="w-6 h-6 stroke-[3]" />

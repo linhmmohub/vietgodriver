@@ -8,13 +8,16 @@ import {
   CheckCircle2, 
   Radio, 
   MapPin, 
-  Search, 
   Calendar,
   X,
   Phone,
   Car,
-  ChevronRight,
-  ShieldAlert
+  ShieldAlert,
+  Key,
+  Eye,
+  EyeOff,
+  Lock,
+  Sparkles
 } from 'lucide-react';
 import { Driver, DriverAttendance, DriverSession, AttendanceShift, DriverShiftStatus } from '../types';
 
@@ -58,15 +61,9 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
   todayAttendanceList,
   onSubmitAttendance,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // Find current session driver from drivers array
-  const sessionDriver = currentDriverSession 
-    ? drivers.find(d => d.id === currentDriverSession.driverId) || null
-    : null;
-
-  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(() => sessionDriver);
-  const [phoneConfirm, setPhoneConfirm] = useState('');
+  // Input credentials for unlocking attendance - ONLY needs secret code!
+  const [secretInput, setSecretInput] = useState('');
+  const [showSecret, setShowSecret] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Form State
@@ -79,16 +76,12 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Active drivers only (approved or ready)
-  const approvedDrivers: Driver[] = drivers.filter((d: Driver) => !d.isRevoked);
+  // Find current session driver from drivers array
+  const sessionDriver = currentDriverSession 
+    ? drivers.find(d => d.id === currentDriverSession.driverId) || null
+    : null;
 
-  const filteredDrivers: Driver[] = approvedDrivers.filter((d: Driver) => 
-    d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.phone.includes(searchQuery)
-  );
-
-  const activeDriver: Driver | null = sessionDriver || selectedDriver;
+  const activeDriver: Driver | null = sessionDriver;
 
   // Find today's attendance for current driver
   const todayStr = new Date().toISOString().split('T')[0];
@@ -96,26 +89,59 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
     a.driverId === activeDriver?.id && a.date === todayStr
   );
 
-  const handleSelectDriver = (driver: Driver) => {
-    setSelectedDriver(driver);
-    setPhoneConfirm('');
-    setLoginError(null);
-  };
-
-  const handleConfirmLogin = (e: React.FormEvent) => {
+  // Handle Driver Authentication via Secret Code ONLY
+  const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDriver) return;
+    setLoginError(null);
 
-    // Check last 4 digits of phone or full phone for security
-    const cleanPhone = selectedDriver.phone.replace(/\D/g, '');
-    const cleanInput = phoneConfirm.replace(/\D/g, '');
+    const inputVal = secretInput.trim();
 
-    if (cleanPhone === cleanInput || cleanPhone.endsWith(cleanInput) && cleanInput.length >= 4) {
-      onDriverLogin(selectedDriver);
-      setLoginError(null);
-    } else {
-      setLoginError('Số điện thoại xác nhận không khớp với hồ sơ tài xế!');
+    if (!inputVal) {
+      setLoginError('Vui lòng nhập Mã khóa bí mật của bạn để mở điểm danh.');
+      return;
     }
+
+    // 1) Match by secretCode directly (case-insensitive)
+    let matchedDriver = drivers.find(d => {
+      const code = (d.secretCode || '').trim();
+      return code && code.toLowerCase() === inputVal.toLowerCase();
+    });
+
+    // 2) Fallback: if driver didn't set custom secretCode, check last 4 digits of phone
+    if (!matchedDriver) {
+      matchedDriver = drivers.find(d => {
+        const last4 = (d.phone || '').replace(/\D/g, '').slice(-4);
+        return last4 && last4 === inputVal;
+      });
+    }
+
+    // 3) Support matching by Driver Code if they typed their TX code as secret
+    if (!matchedDriver) {
+      matchedDriver = drivers.find(d => {
+        return d.code.trim().toLowerCase() === inputVal.toLowerCase();
+      });
+    }
+
+    if (!matchedDriver) {
+      setLoginError('Mã khóa bí mật không chính xác. Vui lòng kiểm tra lại mã được quản lý cấp!');
+      return;
+    }
+
+    // Check account status
+    if (matchedDriver.isRevoked) {
+      setLoginError(`Tài xế [${matchedDriver.name}] đã bị thu hồi trang bị / đình chỉ công tác.`);
+      return;
+    }
+
+    if (matchedDriver.approvalStatus === 'pending') {
+      setLoginError(`Hồ sơ tài xế [${matchedDriver.name}] đang trong danh sách chờ duyệt, chưa kích hoạt.`);
+      return;
+    }
+
+    // Success! Log in the driver
+    onDriverLogin(matchedDriver);
+    setSecretInput('');
+    setLoginError(null);
   };
 
   const handlePerformAttendance = (e: React.FormEvent) => {
@@ -176,7 +202,7 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Tài xế vào ca, chọn khung giờ, báo ra ca hoặc báo nghỉ đột xuất realtime
+                Đăng nhập bằng mã khóa bí mật để mở bảng điểm danh ca trực realtime
               </p>
             </div>
           </div>
@@ -191,121 +217,83 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
         {/* Body */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-5">
 
-          {/* STEP 1: If no driver selected/logged in, show driver identification */}
+          {/* STEP 1: If no active driver session, show Secret Code / Driver Code Login */}
           {!activeDriver ? (
-            <div className="space-y-4">
-              <div className="bg-slate-800/40 p-4 rounded-2xl border border-slate-800 text-xs text-slate-300">
-                <p className="font-semibold text-amber-400 mb-1 flex items-center gap-1.5">
-                  <Radio className="w-3.5 h-3.5" />
-                  Bước 1: Chọn tài xế để điểm danh ca hôm nay
+            <div className="space-y-5 max-w-lg mx-auto py-2">
+              
+              <div className="text-center space-y-2">
+                <div className="inline-flex p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 mb-1">
+                  <Lock className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-bold text-white">
+                  Nhập Mã Khóa Bí Mật Để Điểm Danh
+                </h3>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Mỗi tài xế được cấp một mã khóa bí mật riêng từ quản lý để mở bảng điểm danh ca làm việc.
                 </p>
-                Tìm theo tên, mã số tài xế (TX-...) hoặc 4 số cuối điện thoại.
               </div>
 
-              {/* Search Box */}
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Nhập tên tài xế, mã TX hoặc SĐT..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-hidden focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
-                  autoFocus
-                />
-              </div>
-
-              {/* Drivers selection list */}
-              <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1">
-                {filteredDrivers.length === 0 ? (
-                  <div className="text-center py-6 text-slate-500 text-xs">
-                    Không tìm thấy tài xế nào khớp từ khóa. Vui lòng kiểm tra lại.
-                  </div>
-                ) : (
-                  filteredDrivers.map(d => (
-                    <button
-                      key={d.id}
-                      onClick={() => handleSelectDriver(d)}
-                      className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition ${
-                        selectedDriver?.id === d.id
-                          ? 'bg-amber-500/15 border-amber-500/50 text-white'
-                          : 'bg-slate-850/60 border-slate-800 text-slate-300 hover:bg-slate-800 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="h-9 w-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-amber-400 font-mono">
-                          {d.code}
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold text-white flex items-center gap-2">
-                            {d.name}
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                              d.workingType === 'parttime'
-                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            }`}>
-                              {d.workingType === 'parttime' ? 'Part-time' : 'Full-time'}
-                            </span>
-                          </div>
-                          <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
-                            <span>SĐT: {d.phone}</span>
-                            {d.licensePlate && <span>• Biển: {d.licensePlate}</span>}
-                          </div>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-500" />
-                    </button>
-                  ))
-                )}
-              </div>
-
-              {/* Confirm phone authentication */}
-              {selectedDriver && (
-                <form onSubmit={handleConfirmLogin} className="mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-300">
-                      Xác nhận đăng nhập: {selectedDriver.name} ({selectedDriver.code})
+              <form onSubmit={handleAuthSubmit} className="p-6 rounded-2xl bg-slate-850 border border-slate-800 space-y-5 shadow-lg">
+                
+                {/* Single Field: Mã Khóa Bí Mật */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-200 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Key className="w-4 h-4 text-amber-400" />
+                      Mã Khóa Bí Mật Điểm Danh
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDriver(null)}
-                      className="text-[11px] text-slate-400 hover:text-white"
-                    >
-                      Đổi tài xế
-                    </button>
-                  </div>
+                    <span className="text-[11px] text-amber-400/90 font-medium">Do quản lý cấp riêng</span>
+                  </label>
 
-                  <div className="space-y-1">
-                    <label className="text-xs text-slate-300">
-                      Nhập số điện thoại (hoặc 4 số cuối của SĐT tài xế) để bảo mật:
-                    </label>
+                  <div className="relative">
                     <input
-                      type="password"
-                      maxLength={11}
-                      placeholder="Nhập SĐT xác thực..."
-                      value={phoneConfirm}
-                      onChange={(e) => setPhoneConfirm(e.target.value)}
-                      className="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-amber-400"
+                      type={showSecret ? "text" : "password"}
+                      value={secretInput}
+                      onChange={(e) => {
+                        setSecretInput(e.target.value);
+                        setLoginError(null);
+                      }}
+                      placeholder="Nhập mã bí mật (VD: 8899, 1234...)"
+                      className="w-full px-4 py-3.5 pr-12 bg-slate-900 border-2 border-slate-700 focus:border-amber-400 rounded-xl text-base text-white font-mono tracking-widest placeholder:tracking-normal placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-amber-400/20 text-center font-bold"
                       autoFocus
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowSecret(!showSecret)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition p-1"
+                      tabIndex={-1}
+                      title={showSecret ? "Ẩn mã bí mật" : "Hiện mã bí mật"}
+                    >
+                      {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
+                  <p className="text-[11px] text-slate-400 text-center">
+                    Tài xế chỉ cần nhập đúng mã khóa bí mật được cấp để mở ca trực.
+                  </p>
+                </div>
 
-                  {loginError && (
-                    <div className="text-xs text-rose-400 flex items-center gap-1.5">
-                      <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-                      <span>{loginError}</span>
-                    </div>
-                  )}
+                {/* Login Error Notification */}
+                {loginError && (
+                  <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2 animate-in fade-in">
+                    <ShieldAlert className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                    <div className="leading-relaxed font-medium">{loginError}</div>
+                  </div>
+                )}
 
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition flex items-center justify-center space-x-1.5 shadow-sm"
-                  >
-                    <LogIn className="w-4 h-4" />
-                    <span>Đăng Nhập Vào Ca</span>
-                  </button>
-                </form>
-              )}
+                {/* Submit button */}
+                <button
+                  type="submit"
+                  className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 active:scale-98 text-slate-950 font-bold rounded-xl text-sm transition flex items-center justify-center space-x-2 shadow-md hover:shadow-amber-500/10"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>MỞ BẢNG ĐIỂM DANH</span>
+                </button>
+              </form>
+
+              <div className="text-center text-[11px] text-slate-500">
+                💡 <span className="text-slate-400">Gợi ý:</span> Nếu bạn quên mã bí mật, vui lòng liên hệ quản lý điều phối để được cấp lại mã PIN.
+              </div>
+
             </div>
           ) : (
             /* STEP 2: Driver is authenticated -> Show Attendance Action Form */
@@ -347,12 +335,12 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
                     type="button"
                     onClick={() => {
                       onDriverLogout();
-                      setSelectedDriver(null);
+                      setSecretInput('');
                     }}
                     className="px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:text-rose-400 hover:border-rose-500/40 text-xs font-medium flex items-center gap-1.5 transition"
                   >
                     <LogOut className="w-3.5 h-3.5" />
-                    <span>Thoát tài khoản</span>
+                    <span>Đổi tài xế / Thoát</span>
                   </button>
                 </div>
               </div>

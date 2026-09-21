@@ -25,7 +25,7 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
   onLoginSuccess,
   appName = 'Quản Lý Đồng Phục Tài Xế',
 }) => {
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,21 +43,9 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
       if (result.success && result.session) {
         onLoginSuccess(result.session);
       } else {
-        setError(result.error || 'Đăng nhập không thành công. Vui lòng kiểm tra lại!');
+        setError(result.error || 'Tên đăng nhập hoặc mật khẩu không chính xác. Vui lòng thử lại!');
       }
     }, 200);
-  };
-
-  const handleQuickFillAdmin = () => {
-    setUsername('admin');
-    setPassword('admin123');
-    setError(null);
-  };
-
-  const handleQuickFillStaff = () => {
-    setUsername('nhanvien');
-    setPassword('nv123');
-    setError(null);
   };
 
   return (
@@ -90,10 +78,10 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white">
-                Xác Thực Đăng Nhập
+                Xác Thực Quản Trị
               </h2>
               <p className="text-[11px] text-slate-400">
-                Bắt buộc đăng nhập tài khoản để truy cập dữ liệu
+                Đăng nhập tài khoản được cấp quyền để truy cập hệ thống
               </p>
             </div>
           </div>
@@ -111,13 +99,13 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-300 flex items-center">
                 <User className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
-                Tên đăng nhập (Username)
+                Tên đăng nhập
               </label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Nhập username (admin hoặc nhanvien)..."
+                placeholder="Nhập tên đăng nhập..."
                 className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition"
                 required
                 autoFocus
@@ -128,7 +116,7 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-300 flex items-center">
                 <Key className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
-                Mật khẩu (Password)
+                Mật khẩu
               </label>
               <div className="relative">
                 <input
@@ -142,7 +130,7 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-1"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -163,40 +151,9 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
               </button>
             </div>
 
-            {/* Quick Fill Buttons for Fast Testing */}
-            <div className="pt-3 border-t border-slate-800/80 space-y-2">
-              <div className="text-[11px] text-slate-400 font-semibold text-center mb-1">
-                ⚡ Tài khoản thử nghiệm có sẵn:
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={handleQuickFillAdmin}
-                  className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 text-xs font-semibold flex flex-col items-start transition active:scale-98 text-left"
-                >
-                  <div className="flex items-center space-x-1 text-amber-400 font-bold">
-                    <Shield className="w-3.5 h-3.5" />
-                    <span>Admin Tổng</span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-mono mt-0.5">admin / admin123</span>
-                  <span className="text-[9px] text-amber-300/80 mt-0.5">Toàn quyền hệ thống</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleQuickFillStaff}
-                  className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold flex flex-col items-start transition active:scale-98 text-left"
-                >
-                  <div className="flex items-center space-x-1 text-indigo-400 font-bold">
-                    <Car className="w-3.5 h-3.5" />
-                    <span>Cấp Dưới (Staff)</span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-mono mt-0.5">nhanvien / nv123</span>
-                  <span className="text-[9px] text-indigo-300/80 mt-0.5">Chỉ thao tác mục Tài xế</span>
-                </button>
-              </div>
-            </div>
+            <p className="text-center text-[11px] text-slate-400 pt-2">
+              Liên hệ Admin tổng nếu bạn chưa có tài khoản hoặc cần cấp lại mật khẩu.
+            </p>
 
           </form>
 
@@ -204,7 +161,7 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
 
         {/* Footer info */}
         <p className="text-center text-[11px] text-slate-500 mt-6">
-          Bảo mật phân quyền & Ghi lại toàn bộ nhật ký thao tác thời gian thực
+          Bảo mật phân quyền & Ghi nhận toàn bộ nhật ký thao tác thời gian thực
         </p>
 
       </div>

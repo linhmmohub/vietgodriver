@@ -383,178 +383,308 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-850/80 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
-                <tr>
-                  <th className="py-3.5 px-4">Tài Xế</th>
-                  <th className="py-3.5 px-3">Hình Thức</th>
-                  <th className="py-3.5 px-3">Khung Giờ Ca</th>
-                  <th className="py-3.5 px-3">Trạng Thái Làm Việc</th>
-                  <th className="py-3.5 px-3">Giờ Vào / Ra Ca</th>
-                  <th className="py-3.5 px-4">Trạm / Khu Vực Trực</th>
-                  <th className="py-3.5 px-4">Ghi Chú / Lý Do Nghỉ</th>
-                  <th className="py-3.5 px-4 text-right">Thao Tác Điều Phối</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800 text-slate-300">
-                {filteredAttendance.map((item) => {
-                  const shiftInfo = SHIFT_LABELS[item.shift] || SHIFT_LABELS.flexible;
-                  const isEmergency = item.status === 'emergency_leave';
+          <div>
+            {/* MOBILE CARD VIEW (< md screens) */}
+            <div className="md:hidden divide-y divide-slate-800">
+              {filteredAttendance.map((item) => {
+                const shiftInfo = SHIFT_LABELS[item.shift] || SHIFT_LABELS.flexible;
+                const isEmergency = item.status === 'emergency_leave';
 
-                  return (
-                    <tr 
-                      key={item.id} 
-                      className={`hover:bg-slate-800/40 transition ${
-                        isEmergency ? 'bg-rose-950/20' : ''
-                      }`}
-                    >
-                      {/* Driver info */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="h-8 w-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-amber-400 font-mono">
-                            {item.driverCode}
+                return (
+                  <div 
+                    key={item.id} 
+                    className={`p-4 space-y-3 transition ${
+                      isEmergency ? 'bg-rose-950/20' : 'hover:bg-slate-850/50'
+                    }`}
+                  >
+                    {/* Top Row: Driver & Status */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="h-9 w-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-amber-400 font-mono shrink-0">
+                          {item.driverCode}
+                        </div>
+                        <div>
+                          <div className="font-bold text-white text-sm flex items-center gap-1.5 flex-wrap">
+                            <span>{item.driverName}</span>
+                            {item.licensePlate && (
+                              <span className="text-[10px] text-slate-400 font-mono bg-slate-800 px-1.5 py-0.5 rounded-sm">
+                                {item.licensePlate}
+                              </span>
+                            )}
                           </div>
-                          <div>
-                            <div className="font-bold text-white text-xs flex items-center gap-1.5">
-                              <span>{item.driverName}</span>
-                              {item.licensePlate && (
-                                <span className="text-[10px] text-slate-400 font-mono bg-slate-800 px-1.5 py-0.5 rounded-sm">
-                                  {item.licensePlate}
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                              <Phone className="w-3 h-3 text-slate-500" />
-                              <span>{item.driverPhone}</span>
-                            </div>
+                          <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                            <Phone className="w-3 h-3 text-slate-500" />
+                            <span>{item.driverPhone}</span>
                           </div>
                         </div>
-                      </td>
+                      </div>
 
-                      {/* Working Type */}
-                      <td className="py-3.5 px-3">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          item.workingType === 'parttime'
-                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        }`}>
-                          {item.workingType === 'parttime' ? 'Part-time' : 'Full-time'}
+                      {/* Status Badge */}
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border shrink-0 ${
+                        item.status === 'on_duty'
+                          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                          : item.status === 'standby'
+                            ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+                            : item.status === 'emergency_leave'
+                              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                              : 'bg-slate-800 text-slate-400 border-slate-700'
+                      }`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${
+                          item.status === 'on_duty' ? 'bg-emerald-400' :
+                          item.status === 'standby' ? 'bg-cyan-400' :
+                          item.status === 'emergency_leave' ? 'bg-rose-400' : 'bg-slate-500'
+                        }`}></span>
+                        {item.status === 'on_duty' && 'Đang chạy ca'}
+                        {item.status === 'standby' && 'Chờ điều phối'}
+                        {item.status === 'emergency_leave' && 'Nghỉ đột xuất'}
+                        {item.status === 'off_duty' && 'Đã ra ca'}
+                      </span>
+                    </div>
+
+                    {/* Middle details: Shift + Time + Zone */}
+                    <div className="grid grid-cols-2 gap-2 text-xs bg-slate-850 p-2.5 rounded-xl border border-slate-800">
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Ca làm việc:</span>
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border mt-0.5 ${shiftInfo.badge}`}>
+                          {shiftInfo.label}
                         </span>
-                      </td>
-
-                      {/* Shift */}
-                      <td className="py-3.5 px-3">
-                        <div className="flex flex-col">
-                          <span className={`inline-block w-fit px-2 py-0.5 rounded-md text-[10px] font-bold border ${shiftInfo.badge}`}>
-                            {shiftInfo.label}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono mt-0.5">
-                            {shiftInfo.time}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-3.5 px-3">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold border ${
-                          item.status === 'on_duty'
-                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                            : item.status === 'standby'
-                              ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
-                              : item.status === 'emergency_leave'
-                                ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
-                                : 'bg-slate-800 text-slate-400 border-slate-700'
-                        }`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${
-                            item.status === 'on_duty' ? 'bg-emerald-400' :
-                            item.status === 'standby' ? 'bg-cyan-400' :
-                            item.status === 'emergency_leave' ? 'bg-rose-400' : 'bg-slate-500'
-                          }`}></span>
-                          {item.status === 'on_duty' && 'Đang chạy ca'}
-                          {item.status === 'standby' && 'Chờ điều phối'}
-                          {item.status === 'emergency_leave' && 'Nghỉ đột xuất'}
-                          {item.status === 'off_duty' && 'Đã ra ca'}
+                        <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+                          {shiftInfo.time}
                         </span>
-                      </td>
+                      </div>
 
-                      {/* Checkin / Checkout times */}
-                      <td className="py-3.5 px-3 font-mono text-[11px]">
-                        <div className="text-slate-200">
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Giờ vào / ra:</span>
+                        <div className="text-[11px] font-mono text-slate-200 mt-0.5">
                           Vào: {item.checkInTime ? new Date(item.checkInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                         </div>
                         {item.checkOutTime && (
-                          <div className="text-slate-400 mt-0.5">
+                          <div className="text-[11px] font-mono text-slate-400">
                             Ra: {new Date(item.checkOutTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         )}
-                      </td>
+                      </div>
 
-                      {/* Standby Zone */}
-                      <td className="py-3.5 px-4">
-                        {item.standbyZone ? (
-                          <div className="flex items-center text-xs text-slate-200">
-                            <MapPin className="w-3.5 h-3.5 mr-1 text-amber-400 shrink-0" />
-                            <span className="truncate max-w-[160px]">{item.standbyZone}</span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-500 text-[11px]">Chưa đăng ký trạm</span>
-                        )}
-                      </td>
-
-                      {/* Note / Emergency reason */}
-                      <td className="py-3.5 px-4 max-w-[200px]">
-                        {item.note ? (
-                          <div className={`text-xs p-1.5 rounded-lg border ${
-                            isEmergency 
-                              ? 'bg-rose-950/60 border-rose-900 text-rose-300 font-medium'
-                              : 'bg-slate-800/80 border-slate-700/80 text-slate-300'
-                          }`}>
-                            {item.note}
-                          </div>
-                        ) : (
-                          <span className="text-slate-500 text-[11px]">—</span>
-                        )}
-                      </td>
-
-                      {/* Quick Status Switching by Dispatcher */}
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end space-x-1.5">
-                          {item.status !== 'on_duty' && (
-                            <button
-                              onClick={() => onUpdateAttendanceStatus(item, 'on_duty')}
-                              title="Chuyển sang Đang chạy ca"
-                              className="px-2 py-1 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded-lg text-[11px] font-semibold transition"
-                            >
-                              Vào ca
-                            </button>
-                          )}
-                          {item.status !== 'standby' && item.status !== 'off_duty' && (
-                            <button
-                              onClick={() => onUpdateAttendanceStatus(item, 'standby')}
-                              title="Chuyển sang Chờ điều phối"
-                              className="px-2 py-1 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 rounded-lg text-[11px] font-semibold transition"
-                            >
-                              Chờ
-                            </button>
-                          )}
-                          {item.status !== 'off_duty' && (
-                            <button
-                              onClick={() => onUpdateAttendanceStatus(item, 'off_duty')}
-                              title="Chuyển sang Ra ca"
-                              className="px-2 py-1 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-lg text-[11px] font-semibold transition"
-                            >
-                              Ra ca
-                            </button>
-                          )}
+                      {item.standbyZone && (
+                        <div className="col-span-2 pt-1 border-t border-slate-800/80 flex items-center text-[11px] text-slate-300">
+                          <MapPin className="w-3.5 h-3.5 mr-1 text-amber-400 shrink-0" />
+                          <span className="truncate">{item.standbyZone}</span>
                         </div>
-                      </td>
+                      )}
 
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      {item.note && (
+                        <div className="col-span-2 pt-1 border-t border-slate-800/80 text-[11px] text-amber-300/90 font-medium">
+                          📝 {item.note}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quick action buttons for mobile */}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      {item.status !== 'on_duty' && (
+                        <button
+                          onClick={() => onUpdateAttendanceStatus(item, 'on_duty')}
+                          className="flex-1 py-2 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1"
+                        >
+                          <span>▶ Vào ca</span>
+                        </button>
+                      )}
+                      {item.status !== 'standby' && item.status !== 'off_duty' && (
+                        <button
+                          onClick={() => onUpdateAttendanceStatus(item, 'standby')}
+                          className="flex-1 py-2 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1"
+                        >
+                          <span>⏸ Chờ</span>
+                        </button>
+                      )}
+                      {item.status !== 'off_duty' && (
+                        <button
+                          onClick={() => onUpdateAttendanceStatus(item, 'off_duty')}
+                          className="flex-1 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 border border-slate-700"
+                        >
+                          <span>⏹ Ra ca</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* DESKTOP TABLE VIEW (>= md screens) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-850/80 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
+                  <tr>
+                    <th className="py-3.5 px-4">Tài Xế</th>
+                    <th className="py-3.5 px-3">Hình Thức</th>
+                    <th className="py-3.5 px-3">Khung Giờ Ca</th>
+                    <th className="py-3.5 px-3">Trạng Thái Làm Việc</th>
+                    <th className="py-3.5 px-3">Giờ Vào / Ra Ca</th>
+                    <th className="py-3.5 px-4">Trạm / Khu Vực Trực</th>
+                    <th className="py-3.5 px-4">Ghi Chú / Lý Do Nghỉ</th>
+                    <th className="py-3.5 px-4 text-right">Thao Tác Điều Phối</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 text-slate-300">
+                  {filteredAttendance.map((item) => {
+                    const shiftInfo = SHIFT_LABELS[item.shift] || SHIFT_LABELS.flexible;
+                    const isEmergency = item.status === 'emergency_leave';
+
+                    return (
+                      <tr 
+                        key={item.id} 
+                        className={`hover:bg-slate-800/40 transition ${
+                          isEmergency ? 'bg-rose-950/20' : ''
+                        }`}
+                      >
+                        {/* Driver info */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="h-8 w-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-amber-400 font-mono">
+                              {item.driverCode}
+                            </div>
+                            <div>
+                              <div className="font-bold text-white text-xs flex items-center gap-1.5">
+                                <span>{item.driverName}</span>
+                                {item.licensePlate && (
+                                  <span className="text-[10px] text-slate-400 font-mono bg-slate-800 px-1.5 py-0.5 rounded-sm">
+                                    {item.licensePlate}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                                <Phone className="w-3 h-3 text-slate-500" />
+                                <span>{item.driverPhone}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Working Type */}
+                        <td className="py-3.5 px-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            item.workingType === 'parttime'
+                              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          }`}>
+                            {item.workingType === 'parttime' ? 'Part-time' : 'Full-time'}
+                          </span>
+                        </td>
+
+                        {/* Shift */}
+                        <td className="py-3.5 px-3">
+                          <div className="flex flex-col">
+                            <span className={`inline-block w-fit px-2 py-0.5 rounded-md text-[10px] font-bold border ${shiftInfo.badge}`}>
+                              {shiftInfo.label}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">
+                              {shiftInfo.time}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-3.5 px-3">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold border ${
+                            item.status === 'on_duty'
+                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                              : item.status === 'standby'
+                                ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+                                : item.status === 'emergency_leave'
+                                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                                  : 'bg-slate-800 text-slate-400 border-slate-700'
+                          }`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${
+                              item.status === 'on_duty' ? 'bg-emerald-400' :
+                              item.status === 'standby' ? 'bg-cyan-400' :
+                              item.status === 'emergency_leave' ? 'bg-rose-400' : 'bg-slate-500'
+                            }`}></span>
+                            {item.status === 'on_duty' && 'Đang chạy ca'}
+                            {item.status === 'standby' && 'Chờ điều phối'}
+                            {item.status === 'emergency_leave' && 'Nghỉ đột xuất'}
+                            {item.status === 'off_duty' && 'Đã ra ca'}
+                          </span>
+                        </td>
+
+                        {/* Checkin / Checkout times */}
+                        <td className="py-3.5 px-3 font-mono text-[11px]">
+                          <div className="text-slate-200">
+                            Vào: {item.checkInTime ? new Date(item.checkInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                          </div>
+                          {item.checkOutTime && (
+                            <div className="text-slate-400 mt-0.5">
+                              Ra: {new Date(item.checkOutTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Standby Zone */}
+                        <td className="py-3.5 px-4">
+                          {item.standbyZone ? (
+                            <div className="flex items-center text-xs text-slate-200">
+                              <MapPin className="w-3.5 h-3.5 mr-1 text-amber-400 shrink-0" />
+                              <span className="truncate max-w-[160px]">{item.standbyZone}</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 text-[11px]">Chưa đăng ký trạm</span>
+                          )}
+                        </td>
+
+                        {/* Note / Emergency reason */}
+                        <td className="py-3.5 px-4 max-w-[200px]">
+                          {item.note ? (
+                            <div className={`text-xs p-1.5 rounded-lg border ${
+                              isEmergency 
+                                ? 'bg-rose-950/60 border-rose-900 text-rose-300 font-medium'
+                                : 'bg-slate-800/80 border-slate-700/80 text-slate-300'
+                            }`}>
+                              {item.note}
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 text-[11px]">—</span>
+                          )}
+                        </td>
+
+                        {/* Quick Status Switching by Dispatcher */}
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end space-x-1.5">
+                            {item.status !== 'on_duty' && (
+                              <button
+                                onClick={() => onUpdateAttendanceStatus(item, 'on_duty')}
+                                title="Chuyển sang Đang chạy ca"
+                                className="px-2 py-1 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded-lg text-[11px] font-semibold transition"
+                              >
+                                Vào ca
+                              </button>
+                            )}
+                            {item.status !== 'standby' && item.status !== 'off_duty' && (
+                              <button
+                                onClick={() => onUpdateAttendanceStatus(item, 'standby')}
+                                title="Chuyển sang Chờ điều phối"
+                                className="px-2 py-1 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 rounded-lg text-[11px] font-semibold transition"
+                              >
+                                Chờ
+                              </button>
+                            )}
+                            {item.status !== 'off_duty' && (
+                              <button
+                                onClick={() => onUpdateAttendanceStatus(item, 'off_duty')}
+                                title="Chuyển sang Ra ca"
+                                className="px-2 py-1 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-lg text-[11px] font-semibold transition"
+                              >
+                                Ra ca
+                              </button>
+                            )}
+                          </div>
+                        </td>
+
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
