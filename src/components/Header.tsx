@@ -14,7 +14,8 @@ import {
   UserCheck,
   FileText,
   Shield,
-  UserCog
+  UserCog,
+  Radio
 } from 'lucide-react';
 import { ActiveTab, AuthSession } from '../types';
 
@@ -22,6 +23,7 @@ interface HeaderProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   driverCount: number;
+  attendanceOnDutyCount: number;
   expenseCount: number;
   revokedCount: number;
   logCount: number;
@@ -31,6 +33,7 @@ interface HeaderProps {
   onLockApp: () => void;
   onOpenDriverModal: () => void;
   onOpenExpenseModal: () => void;
+  onOpenDriverPortal: () => void;
   onExportCSV: () => void;
   onOpenBackupModal: () => void;
 }
@@ -39,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
   driverCount,
+  attendanceOnDutyCount,
   expenseCount,
   revokedCount,
   logCount,
@@ -48,6 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLockApp,
   onOpenDriverModal,
   onOpenExpenseModal,
+  onOpenDriverPortal,
   onExportCSV,
   onOpenBackupModal,
 }) => {
@@ -145,6 +150,16 @@ export const Header: React.FC<HeaderProps> = ({
             )}
 
             <button
+              id="btn-open-driver-portal"
+              onClick={onOpenDriverPortal}
+              title="Mở cổng cho tài xế đăng nhập điểm danh vào/ra ca realtime"
+              className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 shadow-xs transition active:scale-95"
+            >
+              <Radio className="w-3.5 h-3.5 mr-1.5 text-emerald-400 animate-pulse" />
+              <span>Cổng Tài Xế Điểm Danh</span>
+            </button>
+
+            <button
               id="btn-export-csv"
               onClick={onExportCSV}
               title="Xuất danh sách ra file Excel / CSV"
@@ -205,6 +220,23 @@ export const Header: React.FC<HeaderProps> = ({
                 {revokedCount}
               </span>
             )}
+          </button>
+
+          {/* Tab 2: Điều phối & Điểm danh ca trực - Accessible by both Super Admin and Staff */}
+          <button
+            id="tab-dispatch"
+            onClick={() => setActiveTab('dispatch')}
+            className={`flex items-center py-2.5 px-3.5 border-b-2 text-xs sm:text-sm font-semibold transition shrink-0 ${
+              activeTab === 'dispatch'
+                ? 'border-emerald-400 text-emerald-400 bg-emerald-500/5'
+                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
+            }`}
+          >
+            <Radio className="w-4 h-4 mr-2 text-emerald-400" />
+            <span>Điều phối & Điểm danh</span>
+            <span className="ml-2 px-1.5 py-0.2 rounded-full text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono font-bold">
+              {attendanceOnDutyCount} đang chạy
+            </span>
           </button>
 
           {/* Super Admin Only Tabs: Expenses, Summary, Audit Logs, User Management */}
@@ -278,7 +310,7 @@ export const Header: React.FC<HeaderProps> = ({
           {isStaff && (
             <div className="flex items-center py-2.5 px-3 text-xs text-slate-400 bg-slate-800/40 rounded-lg shrink-0 border border-slate-800">
               <span className="inline-block w-2 h-2 rounded-full bg-indigo-400 mr-2"></span>
-              <span>Tài khoản cấp dưới: Giới hạn thao tác hồ sơ Tài xế</span>
+              <span>Tài khoản cấp dưới: Quản lý hồ sơ Tài xế & Điều phối điểm danh ca trực</span>
             </div>
           )}
 

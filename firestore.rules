@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Cho phép ứng dụng đọc và ghi để đồng bộ dữ liệu tài xế, sổ chi tiêu, tài khoản và nhật ký
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

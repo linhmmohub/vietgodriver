@@ -8,6 +8,10 @@ export type RevokeReason = 'violation' | 'resigned' | 'damaged' | 'other';
 
 export type RefundStatus = 'refunded' | 'pending' | 'no_refund';
 
+export type DriverWorkingType = 'fulltime' | 'parttime';
+
+export type DriverApprovalStatus = 'approved' | 'pending';
+
 export interface Driver {
   id: string;
   code: string; // Mã tài xế (e.g. TX-001)
@@ -15,6 +19,12 @@ export interface Driver {
   phone: string; // Số điện thoại
   licensePlate?: string; // Biển số xe
   joinDate: string; // Ngày vào làm / nhận việc
+  secretCode?: string; // Mã bí mật điểm danh riêng cho tài xế (mật khẩu/PIN do quản lý cấp)
+
+  // Hình thức làm việc & Trạng thái duyệt
+  workingType?: DriverWorkingType; // 'fulltime' | 'parttime' (mặc định: 'fulltime')
+  approvalStatus?: DriverApprovalStatus; // 'approved' (chính thức) | 'pending' (danh sách chờ / dự bị chưa duyệt)
+  rejectionReason?: string; // Lý do chưa duyệt / từ chối nếu có
   
   // Tình trạng Mũ
   hasHelmet: boolean;
@@ -68,7 +78,43 @@ export interface ExpenseItem {
   createdAt: string;
 }
 
-export type ActiveTab = 'drivers' | 'expenses' | 'summary' | 'logs' | 'users';
+export type ActiveTab = 'drivers' | 'dispatch' | 'expenses' | 'summary' | 'logs' | 'users';
+
+export type AttendanceShift = 'morning' | 'afternoon' | 'evening' | 'night' | 'flexible';
+
+export type DriverShiftStatus = 
+  | 'on_duty'        // Đang trực ca / Đang chạy
+  | 'off_duty'       // Ra ca / Đã kết thúc ca
+  | 'emergency_leave'// Nghỉ đột xuất / Báo hỏng xe / Việc gấp
+  | 'scheduled_leave'// Nghỉ phép có báo trước
+  | 'standby';       // Sẵn sàng chờ lệnh điều phối
+
+export interface DriverAttendance {
+  id: string;
+  driverId: string;
+  driverCode: string;
+  driverName: string;
+  driverPhone: string;
+  licensePlate?: string;
+  workingType: DriverWorkingType;
+  date: string; // YYYY-MM-DD
+  shift: AttendanceShift;
+  status: DriverShiftStatus;
+  checkInTime: string; // ISO string
+  checkOutTime?: string; // ISO string
+  note?: string; // Lý do nghỉ đột xuất, ra ca, ghi chú điều phối
+  standbyZone?: string; // Khu vực hoạt động / Trạm chờ điều phối (e.g. Quận 1, Sân bay, Bến xe)
+  updatedAt: string;
+}
+
+export interface DriverSession {
+  driverId: string;
+  driverCode: string;
+  driverName: string;
+  phone: string;
+  workingType: DriverWorkingType;
+  loginAt: string;
+}
 
 export type UserRole = 'super_admin' | 'staff';
 
@@ -101,6 +147,8 @@ export type AuditActionType =
   | 'DRIVER_CREATE'
   | 'DRIVER_UPDATE'
   | 'DRIVER_DELETE'
+  | 'ATTENDANCE_CHECKIN'
+  | 'ATTENDANCE_UPDATE'
   | 'EXPENSE_CREATE'
   | 'EXPENSE_UPDATE'
   | 'EXPENSE_DELETE'

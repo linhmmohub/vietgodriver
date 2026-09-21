@@ -8,9 +8,17 @@ import {
   ShieldAlert, 
   Save, 
   Calendar, 
-  AlertCircle
+  AlertCircle,
+  Briefcase,
+  Clock,
+  CheckCircle2,
+  Hourglass,
+  Key,
+  RefreshCw,
+  Copy,
+  Check
 } from 'lucide-react';
-import { Driver, ShirtSize, PaymentStatus, RevokeReason, RefundStatus } from '../types';
+import { Driver, ShirtSize, PaymentStatus, RevokeReason, RefundStatus, DriverWorkingType, DriverApprovalStatus } from '../types';
 import { getTodayDateString, formatCurrency } from '../utils/formatters';
 import { CurrencyInput } from './CurrencyInput';
 
@@ -34,6 +42,13 @@ export const DriverModal: React.FC<DriverModalProps> = ({
   const [phone, setPhone] = useState('');
   const [licensePlate, setLicensePlate] = useState('');
   const [joinDate, setJoinDate] = useState(getTodayDateString());
+  const [secretCode, setSecretCode] = useState('');
+  const [isSecretCopied, setIsSecretCopied] = useState(false);
+
+  // Hình thức làm việc & Trạng thái duyệt
+  const [workingType, setWorkingType] = useState<DriverWorkingType>('fulltime');
+  const [approvalStatus, setApprovalStatus] = useState<DriverApprovalStatus>('approved');
+  const [rejectionReason, setRejectionReason] = useState('');
 
   // Mũ
   const [hasHelmet, setHasHelmet] = useState(true);
@@ -79,6 +94,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
       setPhone(driverToEdit.phone);
       setLicensePlate(driverToEdit.licensePlate || '');
       setJoinDate(driverToEdit.joinDate || getTodayDateString());
+      setSecretCode(driverToEdit.secretCode || (driverToEdit.phone ? driverToEdit.phone.replace(/\D/g, '').slice(-4) : '1234') || '1234');
 
       setHasHelmet(driverToEdit.hasHelmet);
       setHelmetQuantity(driverToEdit.helmetQuantity || 1);
@@ -89,6 +105,10 @@ export const DriverModal: React.FC<DriverModalProps> = ({
       setShirtQuantity(driverToEdit.shirtQuantity || 1);
       setShirtDate(driverToEdit.shirtDate || getTodayDateString());
       setOtherItems(driverToEdit.otherItems || '');
+
+      setWorkingType(driverToEdit.workingType || 'fulltime');
+      setApprovalStatus(driverToEdit.approvalStatus || 'approved');
+      setRejectionReason(driverToEdit.rejectionReason || '');
 
       setPaymentStatus(driverToEdit.paymentStatus);
       setUniformFeeRequired(driverToEdit.uniformFeeRequired || 400000);
@@ -119,6 +139,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
       setPhone('');
       setLicensePlate('');
       setJoinDate(getTodayDateString());
+      setSecretCode(Math.floor(1000 + Math.random() * 9000).toString());
 
       setHasHelmet(true);
       setHelmetQuantity(1);
@@ -129,6 +150,10 @@ export const DriverModal: React.FC<DriverModalProps> = ({
       setShirtQuantity(2);
       setShirtDate(getTodayDateString());
       setOtherItems('');
+
+      setWorkingType('fulltime');
+      setApprovalStatus('approved');
+      setRejectionReason('');
 
       setPaymentStatus('paid');
       setUniformFeeRequired(400000);
@@ -195,6 +220,11 @@ export const DriverModal: React.FC<DriverModalProps> = ({
       phone: phone.trim(),
       licensePlate: licensePlate.trim().toUpperCase(),
       joinDate,
+      secretCode: secretCode.trim() || (phone ? phone.replace(/\D/g, '').slice(-4) : '1234') || '1234',
+
+      workingType,
+      approvalStatus,
+      rejectionReason: approvalStatus === 'pending' ? rejectionReason.trim() : undefined,
 
       hasHelmet,
       helmetQuantity: Number(helmetQuantity) || 0,
@@ -344,6 +374,152 @@ export const DriverModal: React.FC<DriverModalProps> = ({
                   onChange={(e) => setJoinDate(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs focus:ring-2 focus:ring-amber-500 outline-none"
                 />
+              </div>
+
+              {/* Hình thức làm việc: Full-time / Part-time */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  Hình thức làm việc <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWorkingType('fulltime')}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition ${
+                      workingType === 'fulltime'
+                        ? 'bg-blue-500 text-white border-blue-600 shadow-xs'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <Briefcase className="w-3.5 h-3.5" />
+                    Full-time
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWorkingType('parttime')}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition ${
+                      workingType === 'parttime'
+                        ? 'bg-purple-500 text-white border-purple-600 shadow-xs'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    Part-time
+                  </button>
+                </div>
+              </div>
+
+              {/* Mã bí mật điểm danh riêng cho tài xế */}
+              <div className="sm:col-span-2 md:col-span-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-1.5">
+                  <label className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    Mã bí mật điểm danh ca trực (Secret PIN) <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+                        setSecretCode(newPin);
+                      }}
+                      className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-900 dark:text-amber-200 border border-amber-500/30 flex items-center gap-1 transition"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Tạo mã ngẫu nhiên
+                    </button>
+                    {secretCode && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(secretCode);
+                          setIsSecretCopied(true);
+                          setTimeout(() => setIsSecretCopied(false), 2000);
+                        }}
+                        className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-slate-200 flex items-center gap-1 transition"
+                      >
+                        {isSecretCopied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                        {isSecretCopied ? 'Đã chép' : 'Sao chép mã'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <input
+                    type="text"
+                    value={secretCode}
+                    onChange={(e) => setSecretCode(e.target.value.trim())}
+                    placeholder="VD: 8899, 1234, 6868..."
+                    maxLength={16}
+                    className="w-full sm:w-48 px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-amber-500/40 text-slate-900 dark:text-slate-100 font-mono text-sm tracking-widest font-bold focus:ring-2 focus:ring-amber-500 outline-none"
+                    required
+                  />
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Cấp mã này cho tài xế để tự mở cổng điểm danh ca làm việc.
+                  </span>
+                </div>
+              </div>
+
+              {/* Trạng thái xét duyệt / Danh sách chờ dự bị */}
+              <div className="sm:col-span-2 md:col-span-3 pt-1">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+                  Trạng thái hồ sơ & Xét duyệt
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div
+                    onClick={() => setApprovalStatus('approved')}
+                    className={`p-2.5 rounded-xl border cursor-pointer transition flex items-center space-x-3 ${
+                      approvalStatus === 'approved'
+                        ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 shadow-xs'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-100/60 dark:hover:bg-slate-750'
+                    }`}
+                  >
+                    <div className={`p-1.5 rounded-lg ${approvalStatus === 'approved' ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                        Đã duyệt chính thức
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Tài xế đủ điều kiện chạy và nhận trang bị
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => setApprovalStatus('pending')}
+                    className={`p-2.5 rounded-xl border cursor-pointer transition flex items-center space-x-3 ${
+                      approvalStatus === 'pending'
+                        ? 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 shadow-xs'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-100/60 dark:hover:bg-slate-750'
+                    }`}
+                  >
+                    <div className={`p-1.5 rounded-lg ${approvalStatus === 'pending' ? 'bg-amber-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
+                      <Hourglass className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs text-amber-700 dark:text-amber-300">
+                        Danh sách chờ / Dự bị chưa duyệt
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Tài xế đăng ký dự bị, đang chờ kiểm tra hoặc phỏng vấn
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {approvalStatus === 'pending' && (
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      placeholder="Ghi chú thêm về trạng thái dự bị (vd: Chờ bổ sung CCCD, chưa test xe...)"
+                      className="w-full px-3 py-2 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 text-slate-900 dark:text-slate-100 text-xs focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -18,7 +18,11 @@ import {
   LayoutGrid,
   List as ListIcon,
   RotateCcw,
-  Check
+  Check,
+  Briefcase,
+  Clock,
+  Hourglass,
+  UserCheck
 } from 'lucide-react';
 import { Driver } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -29,9 +33,20 @@ interface DriverListProps {
   onDeleteDriver: (id: string) => void;
   onViewDriver: (driver: Driver) => void;
   onAddNewDriver: () => void;
+  onApproveDriver?: (driver: Driver) => void;
 }
 
-type FilterCategory = 'all' | 'active' | 'revoked' | 'need_helmet' | 'need_shirt' | 'debt' | 'pending_refund';
+type FilterCategory = 
+  | 'all' 
+  | 'pending_approval'
+  | 'fulltime'
+  | 'parttime'
+  | 'active' 
+  | 'revoked' 
+  | 'need_helmet' 
+  | 'need_shirt' 
+  | 'debt' 
+  | 'pending_refund';
 type ViewMode = 'cards' | 'table';
 
 export const DriverList: React.FC<DriverListProps> = ({
@@ -40,6 +55,7 @@ export const DriverList: React.FC<DriverListProps> = ({
   onDeleteDriver,
   onViewDriver,
   onAddNewDriver,
+  onApproveDriver,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<FilterCategory>('all');
@@ -55,20 +71,27 @@ export const DriverList: React.FC<DriverListProps> = ({
         driver.code.toLowerCase().includes(term) ||
         driver.phone.toLowerCase().includes(term) ||
         (driver.licensePlate && driver.licensePlate.toLowerCase().includes(term)) ||
-        (driver.generalNote && driver.generalNote.toLowerCase().includes(term));
+        (driver.generalNote && driver.generalNote.toLowerCase().includes(term)) ||
+        (driver.rejectionReason && driver.rejectionReason.toLowerCase().includes(term));
 
       if (!matchSearch) return false;
 
       // Filter matching
       switch (filter) {
+        case 'pending_approval':
+          return driver.approvalStatus === 'pending';
+        case 'fulltime':
+          return (driver.workingType || 'fulltime') === 'fulltime' && driver.approvalStatus !== 'pending';
+        case 'parttime':
+          return driver.workingType === 'parttime' && driver.approvalStatus !== 'pending';
         case 'active':
-          return !driver.isRevoked;
+          return !driver.isRevoked && driver.approvalStatus !== 'pending';
         case 'revoked':
           return driver.isRevoked;
         case 'need_helmet':
-          return !driver.hasHelmet && !driver.isRevoked;
+          return !driver.hasHelmet && !driver.isRevoked && driver.approvalStatus !== 'pending';
         case 'need_shirt':
-          return !driver.hasShirt && !driver.isRevoked;
+          return !driver.hasShirt && !driver.isRevoked && driver.approvalStatus !== 'pending';
         case 'debt':
           return driver.paymentStatus !== 'paid';
         case 'pending_refund':
@@ -156,6 +179,42 @@ export const DriverList: React.FC<DriverListProps> = ({
           </button>
 
           <button
+            onClick={() => setFilter('pending_approval')}
+            className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition shrink-0 flex items-center gap-1.5 ${
+              filter === 'pending_approval'
+                ? 'bg-amber-500 text-white shadow-xs font-bold'
+                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/50'
+            }`}
+          >
+            <Hourglass className="w-3.5 h-3.5" />
+            Chờ duyệt / Dự bị ({drivers.filter(d => d.approvalStatus === 'pending').length})
+          </button>
+
+          <button
+            onClick={() => setFilter('fulltime')}
+            className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition shrink-0 flex items-center gap-1.5 ${
+              filter === 'fulltime'
+                ? 'bg-blue-600 text-white shadow-xs font-bold'
+                : 'bg-slate-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30'
+            }`}
+          >
+            <Briefcase className="w-3.5 h-3.5" />
+            Full-time ({drivers.filter(d => (d.workingType || 'fulltime') === 'fulltime' && d.approvalStatus !== 'pending').length})
+          </button>
+
+          <button
+            onClick={() => setFilter('parttime')}
+            className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition shrink-0 flex items-center gap-1.5 ${
+              filter === 'parttime'
+                ? 'bg-purple-600 text-white shadow-xs font-bold'
+                : 'bg-slate-100 dark:bg-slate-800 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            Part-time ({drivers.filter(d => d.workingType === 'parttime' && d.approvalStatus !== 'pending').length})
+          </button>
+
+          <button
             onClick={() => setFilter('active')}
             className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition shrink-0 ${
               filter === 'active'
@@ -163,7 +222,7 @@ export const DriverList: React.FC<DriverListProps> = ({
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
-            Đang hoạt động ({drivers.filter(d => !d.isRevoked).length})
+            Đang hoạt động ({drivers.filter(d => !d.isRevoked && d.approvalStatus !== 'pending').length})
           </button>
 
           <button
@@ -301,18 +360,65 @@ export const DriverList: React.FC<DriverListProps> = ({
                       </div>
                     </div>
 
-                    {/* Status Pill */}
-                    {driver.isRevoked ? (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0">
-                        Bị Thu Hồi
+                    {/* Status Pill & Working Type */}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {driver.approvalStatus === 'pending' ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center gap-1">
+                          <Hourglass className="w-2.5 h-2.5" />
+                          Chờ Duyệt
+                        </span>
+                      ) : driver.isRevoked ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                          Bị Thu Hồi
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          Đang Chạy
+                        </span>
+                      )}
+
+                      <span className={`px-2 py-0.2 rounded-md text-[10px] font-semibold flex items-center gap-1 ${
+                        driver.workingType === 'parttime'
+                          ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                          : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                      }`}>
+                        {driver.workingType === 'parttime' ? (
+                          <>
+                            <Clock className="w-2.5 h-2.5" />
+                            Part-time
+                          </>
+                        ) : (
+                          <>
+                            <Briefcase className="w-2.5 h-2.5" />
+                            Full-time
+                          </>
+                        )}
                       </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
-                        Đang Chạy
-                      </span>
-                    )}
+                    </div>
                   </div>
                 </div>
+
+                {/* Banner nếu đang ở danh sách chờ */}
+                {driver.approvalStatus === 'pending' && (
+                  <div className="mx-4 mt-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-xs flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5 text-amber-800 dark:text-amber-200 text-[11px]">
+                      <Hourglass className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span className="font-medium truncate max-w-[160px] sm:max-w-[200px]">
+                        {driver.rejectionReason || 'Hồ sơ chờ phê duyệt / dự bị'}
+                      </span>
+                    </div>
+                    {onApproveDriver && (
+                      <button
+                        onClick={() => onApproveDriver(driver)}
+                        className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 transition shadow-2xs shrink-0"
+                        title="Duyệt tài xế này chính thức"
+                      >
+                        <UserCheck className="w-3 h-3" />
+                        Duyệt ngay
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Body: Đồng Phục & Tiền Cọc */}
                 <div className="p-4 space-y-3 text-xs flex-1">
@@ -511,6 +617,13 @@ export const DriverList: React.FC<DriverListProps> = ({
                               <span className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono text-[10px]">
                                 {driver.code}
                               </span>
+                              <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold flex items-center gap-1 ${
+                                driver.workingType === 'parttime'
+                                  ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                                  : 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                              }`}>
+                                {driver.workingType === 'parttime' ? 'Part-time' : 'Full-time'}
+                              </span>
                             </div>
                             <div className="flex items-center text-slate-500 dark:text-slate-400 space-x-2 mt-0.5 text-[11px]">
                               <a href={`tel:${driver.phone}`} className="flex items-center hover:text-blue-500">
@@ -606,9 +719,21 @@ export const DriverList: React.FC<DriverListProps> = ({
                         )}
                       </td>
 
-                      {/* Cột 5: Tình trạng vi phạm & hoàn tiền */}
+                      {/* Cột 5: Tình trạng vi phạm & hoàn tiền / Chờ duyệt */}
                       <td className="py-3 px-4">
-                        {driver.isRevoked ? (
+                        {driver.approvalStatus === 'pending' ? (
+                          <div className="space-y-1">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                              <Hourglass className="w-3 h-3 mr-1 text-amber-600" />
+                              Chờ duyệt (Dự bị)
+                            </span>
+                            {driver.rejectionReason && (
+                              <div className="text-[10px] text-amber-700 dark:text-amber-300 italic line-clamp-1 max-w-[180px]">
+                                {driver.rejectionReason}
+                              </div>
+                            )}
+                          </div>
+                        ) : driver.isRevoked ? (
                           <div className="space-y-1">
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
                               <ShieldAlert className="w-3 h-3 mr-1 text-rose-600" />
@@ -631,7 +756,7 @@ export const DriverList: React.FC<DriverListProps> = ({
                         ) : (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
                             <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Đang hoạt động
+                            Đã duyệt
                           </span>
                         )}
                       </td>
@@ -639,6 +764,16 @@ export const DriverList: React.FC<DriverListProps> = ({
                       {/* Cột 6: Nút thao tác */}
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end space-x-1">
+                          {driver.approvalStatus === 'pending' && onApproveDriver && (
+                            <button
+                              onClick={() => onApproveDriver(driver)}
+                              title="Duyệt tài xế chính thức"
+                              className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 transition shadow-2xs mr-1"
+                            >
+                              <UserCheck className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Duyệt</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => onViewDriver(driver)}
                             title="Xem chi tiết hồ sơ"

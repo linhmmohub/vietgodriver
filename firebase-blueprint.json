@@ -1,0 +1,108 @@
+{
+  "entities": {
+    "drivers": {
+      "title": "Tài xế & Đồng phục",
+      "description": "Quản lý hồ sơ tài xế, cấp phát mũ, áo, tiền cọc, thu hồi vi phạm",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "description": "Mã tài xế" },
+        "name": { "type": "string", "description": "Họ tên tài xế" },
+        "phone": { "type": "string", "description": "Số điện thoại" },
+        "licensePlate": { "type": "string", "description": "Biển số xe" },
+        "joinDate": { "type": "string", "description": "Ngày vào làm" },
+        "secretCode": { "type": "string", "description": "Mã bí mật điểm danh do quản lý cấp" },
+        "hasHelmet": { "type": "boolean", "description": "Đã cấp mũ" },
+        "helmetQuantity": { "type": "number", "description": "Số lượng mũ" },
+        "hasShirt": { "type": "boolean", "description": "Đã cấp áo" },
+        "shirtSize": { "type": "string", "description": "Size áo" },
+        "shirtQuantity": { "type": "number", "description": "Số lượng áo" },
+        "paymentStatus": { "type": "string", "description": "Trạng thái thanh toán" },
+        "workingType": { "type": "string", "description": "Hình thức làm việc: fulltime hoặc parttime" },
+        "approvalStatus": { "type": "string", "description": "Trạng thái duyệt: approved hoặc pending" },
+        "rejectionReason": { "type": "string", "description": "Ghi chú lý do nếu có" },
+        "uniformFeeRequired": { "type": "number", "description": "Tiền cọc yêu cầu" },
+        "uniformFeePaid": { "type": "number", "description": "Tiền cọc thực tế đã thu" },
+        "isRevoked": { "type": "boolean", "description": "Trạng thái bị thu hồi vi phạm" },
+        "refundStatus": { "type": "string", "description": "Tình trạng hoàn tiền" },
+        "refundAmount": { "type": "number", "description": "Số tiền hoàn" },
+        "updatedAt": { "type": "string", "description": "Thời gian cập nhật" }
+      },
+      "required": ["code", "name", "phone", "updatedAt"]
+    },
+    "expenses": {
+      "title": "Khoản chi nội bộ",
+      "description": "Sổ chi tiêu mua sắm đồng phục, in ấn và hoàn cọc",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "description": "Ngày chi" },
+        "title": { "type": "string", "description": "Tên khoản chi" },
+        "category": { "type": "string", "description": "Phân loại chi" },
+        "amount": { "type": "number", "description": "Số tiền chi" },
+        "recipient": { "type": "string", "description": "Người nhận tiền" },
+        "internalNote": { "type": "string", "description": "Ghi chú nội bộ" },
+        "receiptImageUrl": { "type": "string", "description": "Ảnh hóa đơn bill" },
+        "createdAt": { "type": "string", "description": "Thời gian tạo" }
+      },
+      "required": ["title", "amount", "date", "category"]
+    },
+    "users": {
+      "title": "Tài khoản hệ thống & Cấp dưới",
+      "description": "Danh sách tài khoản Admin Tổng và Nhân viên cấp dưới",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string", "description": "Tên đăng nhập" },
+        "displayName": { "type": "string", "description": "Tên hiển thị" },
+        "role": { "type": "string", "description": "Vai trò (super_admin hoặc staff)" },
+        "passwordHash": { "type": "string", "description": "Mã hóa mật khẩu" },
+        "isActive": { "type": "boolean", "description": "Trạng thái hoạt động" },
+        "createdAt": { "type": "string", "description": "Ngày tạo" }
+      },
+      "required": ["username", "role", "passwordHash"]
+    },
+    "audit_logs": {
+      "title": "Nhật ký thao tác",
+      "description": "Ghi lại mọi hoạt động trong hệ thống",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "string", "description": "Thời gian" },
+        "username": { "type": "string", "description": "Tên tài khoản thao tác" },
+        "displayName": { "type": "string", "description": "Tên hiển thị" },
+        "role": { "type": "string", "description": "Vai trò" },
+        "actionType": { "type": "string", "description": "Loại hành động" },
+        "actionLabel": { "type": "string", "description": "Nhãn hành động" },
+        "description": { "type": "string", "description": "Mô tả chi tiết" }
+      },
+      "required": ["timestamp", "username", "actionType", "description"]
+    },
+    "attendance": {
+      "title": "Điểm danh & Điều phối ca trực",
+      "description": "Dữ liệu chấm công, vào ca, ra ca, nghỉ đột xuất và phân bổ điều phối tài xế thời gian thực",
+      "type": "object",
+      "properties": {
+        "driverId": { "type": "string", "description": "ID tài xế" },
+        "driverCode": { "type": "string", "description": "Mã tài xế (TX-001)" },
+        "driverName": { "type": "string", "description": "Họ tên tài xế" },
+        "driverPhone": { "type": "string", "description": "Số điện thoại tài xế" },
+        "workingType": { "type": "string", "description": "fulltime hoặc parttime" },
+        "date": { "type": "string", "description": "Ngày điểm danh YYYY-MM-DD" },
+        "shift": { "type": "string", "description": "Khung ca: morning, afternoon, evening, night, flexible" },
+        "status": { "type": "string", "description": "on_duty (đang chạy), off_duty (ra ca), emergency_leave (nghỉ đột xuất), scheduled_leave (nghỉ phép), standby (chờ điều phối)" },
+        "checkInTime": { "type": "string", "description": "Giờ vào ca ISO" },
+        "checkOutTime": { "type": "string", "description": "Giờ ra ca ISO" },
+        "note": { "type": "string", "description": "Lý do nghỉ đột xuất / ghi chú điều phối" },
+        "standbyZone": { "type": "string", "description": "Khu vực / Trạm trực điều phối" },
+        "updatedAt": { "type": "string", "description": "Thời gian cập nhật" }
+      },
+      "required": ["driverId", "driverCode", "driverName", "date", "status", "checkInTime"]
+    },
+    "metadata": {
+      "title": "Cấu hình hệ thống",
+      "description": "Cấu hình khởi tạo và trạng thái hệ thống",
+      "type": "object",
+      "properties": {
+        "initialized": { "type": "boolean", "description": "Đã khởi tạo dữ liệu hay chưa" },
+        "updatedAt": { "type": "string", "description": "Thời gian cập nhật" }
+      }
+    }
+  }
+}

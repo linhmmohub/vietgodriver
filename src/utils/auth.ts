@@ -1,4 +1,5 @@
 import { SystemUser, AuthSession, UserRole, AuditLogItem, AuditActionType, AuthSettings } from '../types';
+import { saveUserToCloud, deleteUserFromCloud, addLogToCloud } from '../services/firestoreSync';
 
 const SYSTEM_USERS_KEY = 'uniform_system_users_v2';
 const AUTH_SESSION_KEY = 'uniform_auth_session_v2';
@@ -28,55 +29,9 @@ export const DEFAULT_STAFF_USER: SystemUser = {
 };
 
 export const DEFAULT_AUTH_SETTINGS: AuthSettings = {
-  requireLoginToView: true, // Bắt buộc đăng nhập mới xem được
+  requireLoginToView: true,
   allowDemoQuickLogin: true,
 };
-
-// INITIAL SEED AUDIT LOGS
-const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
-  {
-    id: 'log-seed-01',
-    timestamp: new Date(Date.now() - 3600 * 1000 * 48).toISOString(),
-    username: 'admin',
-    displayName: 'Admin Tổng (Toàn quyền)',
-    role: 'super_admin',
-    actionType: 'LOGIN',
-    actionLabel: 'Đăng nhập hệ thống',
-    description: 'Admin Tổng đăng nhập thành công vào hệ thống quản trị',
-  },
-  {
-    id: 'log-seed-02',
-    timestamp: new Date(Date.now() - 3600 * 1000 * 36).toISOString(),
-    username: 'admin',
-    displayName: 'Admin Tổng (Toàn quyền)',
-    role: 'super_admin',
-    actionType: 'USER_CREATE',
-    actionLabel: 'Tạo tài khoản cấp dưới',
-    description: 'Phân quyền tài khoản "nhanvien" (Chỉ thao tác mục tài xế)',
-    targetName: 'nhanvien',
-  },
-  {
-    id: 'log-seed-03',
-    timestamp: new Date(Date.now() - 3600 * 1000 * 24).toISOString(),
-    username: 'nhanvien',
-    displayName: 'Nhân Viên Điều Hành (Cấp dưới)',
-    role: 'staff',
-    actionType: 'LOGIN',
-    actionLabel: 'Đăng nhập cấp dưới',
-    description: 'Nhân viên đăng nhập vào ca trực điều phối tài xế',
-  },
-  {
-    id: 'log-seed-04',
-    timestamp: new Date(Date.now() - 3600 * 1000 * 18).toISOString(),
-    username: 'nhanvien',
-    displayName: 'Nhân Viên Điều Hành (Cấp dưới)',
-    role: 'staff',
-    actionType: 'DRIVER_CREATE',
-    actionLabel: 'Thêm tài xế mới',
-    description: 'Thêm mới tài xế Trần Văn Bình (TX002) - Thu cọc 500.000đ, cấp 1 Mũ, 1 Áo L',
-    targetName: 'Trần Văn Bình (TX002)',
-  },
-];
 
 // USER STORAGE
 export function getSystemUsers(): SystemUser[] {
@@ -91,7 +46,6 @@ export function getSystemUsers(): SystemUser[] {
     if (!Array.isArray(parsed) || parsed.length === 0) {
       return [DEFAULT_SUPER_ADMIN, DEFAULT_STAFF_USER];
     }
-    // Ensure at least one super_admin exists
     const hasAdmin = parsed.some(u => u.role === 'super_admin');
     if (!hasAdmin) {
       parsed.unshift(DEFAULT_SUPER_ADMIN);
@@ -163,20 +117,18 @@ export function getStoredAuditLogs(): AuditLogItem[] {
   try {
     const raw = localStorage.getItem(AUDIT_LOGS_KEY);
     if (!raw) {
-      localStorage.setItem(AUDIT_LOGS_KEY, JSON.stringify(INITIAL_AUDIT_LOGS));
-      return INITIAL_AUDIT_LOGS;
+      return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : INITIAL_AUDIT_LOGS;
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
     console.error('Error loading audit logs:', e);
-    return INITIAL_AUDIT_LOGS;
+    return [];
   }
 }
 
 export function saveStoredAuditLogs(logs: AuditLogItem[]): void {
   try {
-    // Keep max 600 newest logs
     const trimmed = logs.slice(0, 600);
     localStorage.setItem(AUDIT_LOGS_KEY, JSON.stringify(trimmed));
   } catch (e) {
@@ -209,6 +161,8 @@ export function addAuditLog(
     const currentLogs = getStoredAuditLogs();
     const updated = [newLog, ...currentLogs];
     saveStoredAuditLogs(updated);
+    // Also save directly to Cloud Firestore
+    addLogToCloud(newLog).catch(console.error);
   } catch (err) {
     console.error('Error logging audit event:', err);
   }
@@ -244,10 +198,10 @@ export function authenticateUser(
     return { success: false, error: 'Mật khẩu không chính xác. Vui lòng thử lại!' };
   }
 
-  // Update lastLogin
   const now = new Date().toISOString();
   foundUser.lastLogin = now;
   saveSystemUsers(users);
+  saveUserToCloud(foundUser).catch(console.error);
 
   const session: AuthSession = {
     id: foundUser.id,
@@ -259,7 +213,6 @@ export function authenticateUser(
 
   saveStoredAuthSession(session);
 
-  // Write Audit Log
   addAuditLog(
     'LOGIN',
     foundUser.role === 'super_admin' ? 'Admin Tổng đăng nhập' : 'Cấp dưới đăng nhập',
@@ -327,8 +280,8 @@ export function createSubordinateUser(
 
   const updatedUsers = [...users, newUser];
   saveSystemUsers(updatedUsers);
+  saveUserToCloud(newUser).catch(console.error);
 
-  // Log action
   addAuditLog(
     'USER_CREATE',
     'Tạo tài khoản cấp dưới',
@@ -363,7 +316,6 @@ export function updateSubordinateUser(
 
   const target = users[targetIndex];
 
-  // Prevent demoting the last super admin
   if (target.role === 'super_admin' && data.role === 'staff') {
     const adminCount = users.filter(u => u.role === 'super_admin').length;
     if (adminCount <= 1) {
@@ -384,8 +336,8 @@ export function updateSubordinateUser(
   }
 
   saveSystemUsers(users);
+  saveUserToCloud(target).catch(console.error);
 
-  // If currently active user edited their own displayName
   if (currentUser.id === userId && data.displayName) {
     const updatedSession = { ...currentUser, displayName: data.displayName };
     saveStoredAuthSession(updatedSession);
@@ -422,6 +374,7 @@ export function deleteSubordinateUser(
 
   const updatedUsers = users.filter(u => u.id !== userId);
   saveSystemUsers(updatedUsers);
+  deleteUserFromCloud(userId).catch(console.error);
 
   addAuditLog(
     'USER_DELETE',
@@ -434,7 +387,6 @@ export function deleteSubordinateUser(
   return { success: true };
 }
 
-// CLEAR LOGS (SUPER ADMIN ONLY)
 export function clearAllAuditLogs(currentUser: AuthSession): { success: boolean; error?: string } {
   if (currentUser.role !== 'super_admin') {
     return { success: false, error: 'Chỉ Admin Tổng mới có quyền xóa nhật ký!' };

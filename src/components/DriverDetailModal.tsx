@@ -12,7 +12,11 @@ import {
   Phone, 
   Calendar,
   CreditCard,
-  Edit2
+  Edit2,
+  Briefcase,
+  Clock,
+  Hourglass,
+  UserCheck
 } from 'lucide-react';
 import { Driver } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -21,12 +25,14 @@ interface DriverDetailModalProps {
   driver: Driver | null;
   onClose: () => void;
   onEdit: (driver: Driver) => void;
+  onApprove?: (driver: Driver) => void;
 }
 
 export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
   driver,
   onClose,
   onEdit,
+  onApprove,
 }) => {
   if (!driver) return null;
 
@@ -104,11 +110,33 @@ export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
                     Vào làm: {formatDate(driver.joinDate)}
                   </span>
                 )}
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold ${
+                  driver.workingType === 'parttime'
+                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                    : 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                }`}>
+                  {driver.workingType === 'parttime' ? (
+                    <>
+                      <Clock className="w-3 h-3 mr-1 text-purple-600 dark:text-purple-400" />
+                      Part-time (Bán thời gian)
+                    </>
+                  ) : (
+                    <>
+                      <Briefcase className="w-3 h-3 mr-1 text-blue-600 dark:text-blue-400" />
+                      Full-time (Toàn thời gian)
+                    </>
+                  )}
+                </span>
               </div>
             </div>
 
-            <div>
-              {driver.isRevoked ? (
+            <div className="flex flex-col sm:items-end gap-1.5">
+              {driver.approvalStatus === 'pending' ? (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 border border-amber-300">
+                  <Hourglass className="w-3.5 h-3.5 mr-1 animate-pulse" />
+                  DANH SÁCH CHỜ (DỰ BỊ)
+                </span>
+              ) : driver.isRevoked ? (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300 border border-rose-300">
                   <ShieldAlert className="w-3.5 h-3.5 mr-1" />
                   BỊ THU HỒI ĐỒNG PHỤC
@@ -116,7 +144,13 @@ export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
               ) : (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 border border-emerald-300">
                   <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                  Đang hoạt động
+                  Đã duyệt chính thức
+                </span>
+              )}
+
+              {driver.approvalStatus === 'pending' && driver.rejectionReason && (
+                <span className="text-[11px] text-amber-700 dark:text-amber-300 italic">
+                  Ghi chú dự bị: {driver.rejectionReason}
                 </span>
               )}
             </div>
@@ -308,6 +342,17 @@ export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
             Cập nhật: {formatDate(driver.updatedAt)}
           </span>
           <div className="flex items-center space-x-2">
+            {driver.approvalStatus === 'pending' && onApprove && (
+              <button
+                onClick={() => {
+                  onApprove(driver);
+                }}
+                className="px-3 sm:px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition flex items-center shadow-xs"
+              >
+                <UserCheck className="w-3.5 h-3.5 mr-1" />
+                Duyệt chính thức
+              </button>
+            )}
             <button
               onClick={() => {
                 onClose();

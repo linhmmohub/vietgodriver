@@ -8,19 +8,34 @@ import {
   HardHat,
   Shirt,
   ArrowDownRight,
-  ArrowUpRight
+  ArrowUpRight,
+  Hourglass,
+  Briefcase,
+  Clock
 } from 'lucide-react';
-import { Driver, ExpenseItem } from '../types';
+import { Driver, ExpenseItem, DriverAttendance } from '../types';
 import { formatCurrency } from '../utils/formatters';
 
 interface StatsCardsProps {
   drivers: Driver[];
   expenses: ExpenseItem[];
+  attendanceList?: DriverAttendance[];
 }
 
-export const StatsCards: React.FC<StatsCardsProps> = ({ drivers, expenses }) => {
+export const StatsCards: React.FC<StatsCardsProps> = ({ drivers, expenses, attendanceList = [] }) => {
   const totalDrivers = drivers.length;
-  const activeDrivers = drivers.filter(d => !d.isRevoked);
+  const approvedDrivers = drivers.filter(d => d.approvalStatus !== 'pending');
+  const pendingDrivers = drivers.filter(d => d.approvalStatus === 'pending');
+  const fulltimeCount = drivers.filter(d => (d.workingType || 'fulltime') === 'fulltime' && d.approvalStatus !== 'pending').length;
+  const parttimeCount = drivers.filter(d => d.workingType === 'parttime' && d.approvalStatus !== 'pending').length;
+
+  // Realtime attendance stats today
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayAttendance = attendanceList.filter(a => a.date === todayStr);
+  const onDutyCount = todayAttendance.filter(a => a.status === 'on_duty').length;
+  const emergencyLeaveCount = todayAttendance.filter(a => a.status === 'emergency_leave').length;
+
+  const activeDrivers = approvedDrivers.filter(d => !d.isRevoked);
   const helmetCount = drivers.filter(d => d.hasHelmet && !d.revokedHelmet).length;
   const shirtCount = drivers.filter(d => d.hasShirt && !d.revokedShirt).length;
   const fullyEquippedCount = activeDrivers.filter(d => d.hasHelmet && d.hasShirt).length;
@@ -54,29 +69,37 @@ export const StatsCards: React.FC<StatsCardsProps> = ({ drivers, expenses }) => 
         <div>
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
-              Đồng Phục Cấp Phát
+              Đồng Phục & Tài Xế
             </span>
             <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
               <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline space-x-1.5">
-            <span className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100 font-mono">
-              {totalDrivers}
-            </span>
-            <span className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">tài xế</span>
+          <div className="mt-2 flex items-baseline justify-between">
+            <div className="flex items-baseline space-x-1.5">
+              <span className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100 font-mono">
+                {approvedDrivers.length}
+              </span>
+              <span className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">chính thức</span>
+            </div>
+            {pendingDrivers.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 border border-amber-300 flex items-center gap-1">
+                <Hourglass className="w-2.5 h-2.5" />
+                {pendingDrivers.length} chờ duyệt
+              </span>
+            )}
           </div>
         </div>
 
         <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px] space-y-1">
           <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
             <span className="flex items-center">
-              <HardHat className="w-3 h-3 mr-1 text-amber-500" />
-              Mũ: <strong className="ml-1 text-slate-800 dark:text-slate-200">{helmetCount}</strong>
+              <Briefcase className="w-3 h-3 mr-1 text-blue-500" />
+              Fulltime: <strong className="ml-1 text-slate-800 dark:text-slate-200">{fulltimeCount}</strong>
             </span>
             <span className="flex items-center">
-              <Shirt className="w-3 h-3 mr-1 text-indigo-500" />
-              Áo: <strong className="ml-1 text-slate-800 dark:text-slate-200">{shirtCount}</strong>
+              <Clock className="w-3 h-3 mr-1 text-purple-500" />
+              Parttime: <strong className="ml-1 text-slate-800 dark:text-slate-200">{parttimeCount}</strong>
             </span>
           </div>
           <div className="flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-medium pt-0.5">
@@ -86,6 +109,15 @@ export const StatsCards: React.FC<StatsCardsProps> = ({ drivers, expenses }) => 
             </span>
             <span className="font-bold font-mono">{fullyEquippedCount} TX</span>
           </div>
+          {todayAttendance.length > 0 && (
+            <div className="flex items-center justify-between text-[10px] pt-1 border-t border-dashed border-slate-200 dark:border-slate-800">
+              <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                Đang trực ca hôm nay:
+              </span>
+              <span className="font-bold text-emerald-400 font-mono">{onDutyCount} TX</span>
+            </div>
+          )}
         </div>
       </div>
 
