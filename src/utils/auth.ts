@@ -24,13 +24,14 @@ export const DEFAULT_STAFF_USER: SystemUser = {
   role: 'staff',
   passwordHash: btoa('nv123'),
   isActive: true,
-  notes: 'Tài khoản cấp dưới: Chỉ được xem và thao tác hồ sơ tài xế & cấp phát đồng phục.',
+  notes: 'Quản lý tài xế: chỉ được xem danh sách tài xế đang trong ca trực.',
   createdAt: new Date('2025-01-02').toISOString(),
 };
 
 export const DEFAULT_AUTH_SETTINGS: AuthSettings = {
   requireLoginToView: true,
   allowDemoQuickLogin: true,
+  driverSessionDays: 7,
 };
 
 // USER STORAGE
@@ -98,7 +99,7 @@ export function getAuthSettings(): AuthSettings {
       localStorage.setItem(AUTH_SETTINGS_KEY, JSON.stringify(DEFAULT_AUTH_SETTINGS));
       return DEFAULT_AUTH_SETTINGS;
     }
-    return JSON.parse(raw);
+    return { ...DEFAULT_AUTH_SETTINGS, ...JSON.parse(raw) };
   } catch (e) {
     return DEFAULT_AUTH_SETTINGS;
   }
@@ -316,7 +317,11 @@ export function updateSubordinateUser(
 
   const target = users[targetIndex];
 
-  if (target.role === 'super_admin' && data.role === 'staff') {
+  if (target.username === 'admin' && data.role && data.role !== 'super_admin') {
+    return { success: false, error: 'Tài khoản Admin gốc luôn phải giữ quyền Admin Tổng!' };
+  }
+
+  if (target.role === 'super_admin' && data.role && data.role !== 'super_admin') {
     const adminCount = users.filter(u => u.role === 'super_admin').length;
     if (adminCount <= 1) {
       return { success: false, error: 'Hệ thống phải có ít nhất 1 tài khoản Admin Tổng!' };
@@ -338,8 +343,8 @@ export function updateSubordinateUser(
   saveSystemUsers(users);
   saveUserToCloud(target).catch(console.error);
 
-  if (currentUser.id === userId && data.displayName) {
-    const updatedSession = { ...currentUser, displayName: data.displayName };
+  if (currentUser.id === userId && (data.displayName || data.role)) {
+    const updatedSession = { ...currentUser, displayName: target.displayName, role: target.role };
     saveStoredAuthSession(updatedSession);
   }
 

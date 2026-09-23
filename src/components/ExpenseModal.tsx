@@ -8,7 +8,7 @@ import {
   Image as ImageIcon,
   AlertCircle
 } from 'lucide-react';
-import { ExpenseItem } from '../types';
+import { ExpenseItem, ExpenseCategoryConfig } from '../types';
 import { getTodayDateString, compressImage } from '../utils/formatters';
 import { CurrencyInput } from './CurrencyInput';
 
@@ -17,6 +17,7 @@ interface ExpenseModalProps {
   onClose: () => void;
   onSave: (expense: ExpenseItem) => void;
   expenseToEdit: ExpenseItem | null;
+  expenseCategories?: ExpenseCategoryConfig[];
 }
 
 export const ExpenseModal: React.FC<ExpenseModalProps> = ({
@@ -24,6 +25,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   onClose,
   onSave,
   expenseToEdit,
+  expenseCategories = [],
 }) => {
   const [date, setDate] = useState(getTodayDateString());
   const [title, setTitle] = useState('');
@@ -119,14 +121,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
+    <div className="mobile-modal-frame fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
       <div 
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="mobile-sheet bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         
         {/* Header Modal */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
               <Receipt className="w-5 h-5" />
@@ -149,7 +151,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         </div>
 
         {/* Body Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs sm:text-sm">
+        <form onSubmit={handleSubmit} className="mobile-safe-bottom flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs sm:text-sm">
           
           {errorMsg && (
             <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 flex items-center text-xs">
@@ -181,12 +183,23 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 onChange={(e) => setCategory(e.target.value as ExpenseItem['category'])}
                 className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs font-semibold focus:ring-2 focus:ring-emerald-500 outline-none"
               >
-                <option value="buy_uniform">👕 Mua / May Áo đồng phục</option>
-                <option value="buy_helmet">🪖 Mua Mũ bảo hiểm</option>
-                <option value="print_logo">🏷️ In ấn logo / Thẻ tài xế</option>
-                <option value="refund_driver">💸 Hoàn tiền cọc cho tài xế</option>
-                <option value="warehouse_shipping">📦 Chi phí kho bãi / Vận chuyển</option>
-                <option value="other">📌 Chi phí khác</option>
+                {expenseCategories && expenseCategories.length > 0 ? (
+                  expenseCategories.filter(c => c.isActive).map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="buy_uniform">👕 Mua / May Áo đồng phục</option>
+                    <option value="buy_helmet">🪖 Mua Mũ bảo hiểm</option>
+                    <option value="buy_delivery_box">📦 Mua Thùng đựng hàng</option>
+                    <option value="print_logo">🏷️ In ấn logo / Thẻ tài xế</option>
+                    <option value="refund_driver">💸 Hoàn tiền cọc cho tài xế</option>
+                    <option value="warehouse_shipping">🚚 Chi phí kho bãi / Vận chuyển</option>
+                    <option value="other">📌 Chi phí khác</option>
+                  </>
+                )}
               </select>
             </div>
           </div>
@@ -318,7 +331,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           </div>
 
           {/* Footer actions */}
-          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end space-x-3">
+          <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-3 pb-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 flex items-center justify-end space-x-3">
             <button
               type="button"
               onClick={onClose}

@@ -3,6 +3,7 @@ import {
   DollarSign, 
   HardHat, 
   Shirt, 
+  Package,
   ShieldAlert, 
   TrendingUp, 
   TrendingDown, 
@@ -40,10 +41,11 @@ export const SummaryDashboard: React.FC<SummaryDashboardProps> = ({
     .filter(d => d.isRevoked && d.refundStatus === 'pending')
     .reduce((acc, d) => acc + (d.refundAmount || 0), 0);
 
-  // Uniform Stats
+  // Equipment Stats
   const activeDrivers = drivers.filter(d => !d.isRevoked);
   const totalHelmetsIssued = drivers.filter(d => d.hasHelmet && !d.revokedHelmet).reduce((acc, d) => acc + (d.helmetQuantity || 1), 0);
   const totalShirtsIssued = drivers.filter(d => d.hasShirt && !d.revokedShirt).reduce((acc, d) => acc + (d.shirtQuantity || 1), 0);
+  const totalBoxesIssued = drivers.filter(d => (d.hasDeliveryBox !== false) && !d.revokedBox).reduce((acc, d) => acc + (d.boxQuantity || 1), 0);
 
   // Shirt size distribution
   const sizeCounts: Record<ShirtSize, number> = {
@@ -57,7 +59,7 @@ export const SummaryDashboard: React.FC<SummaryDashboardProps> = ({
 
   // Action Items:
   // 1. Revoked drivers who haven't returned items
-  const driversNeedingReturn = drivers.filter(d => d.isRevoked && (!d.revokedHelmet || !d.revokedShirt));
+  const driversNeedingReturn = drivers.filter(d => d.isRevoked && (!d.revokedHelmet || !d.revokedShirt || !d.revokedBox));
   
   // 2. Drivers pending refund
   const driversPendingRefund = drivers.filter(d => d.isRevoked && d.refundStatus === 'pending');
@@ -72,7 +74,7 @@ export const SummaryDashboard: React.FC<SummaryDashboardProps> = ({
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3.5 flex items-center">
           <Wallet className="w-4 h-4 mr-2 text-emerald-500" />
-          Báo Cáo Cân Đối Thu - Chi Quỹ Đồng Phục
+          Báo Cáo Cân Đối Thu - Chi Quỹ Đồng Phục & Trang Bị
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -115,7 +117,7 @@ export const SummaryDashboard: React.FC<SummaryDashboardProps> = ({
               -{formatCurrency(totalExpenseSpending)}
             </div>
             <p className="text-[10px] sm:text-[11px] text-rose-600/80 mt-1">
-              May áo, mua mũ, in ấn logo & ship
+              May áo, mũ, thùng hàng, in ấn & ship
             </p>
           </div>
 
@@ -153,28 +155,38 @@ export const SummaryDashboard: React.FC<SummaryDashboardProps> = ({
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-4 flex items-center">
             <HardHat className="w-4 h-4 mr-2 text-amber-500" />
-            Tình Hình Cấp Phát Mũ & Áo Thực Tế
+            Tình Hình Cấp Phát Mũ, Áo & Thùng Hàng
           </h2>
 
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
+            <div className="p-3 sm:p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
               <span className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 block mb-1">
-                Tổng Mũ đang giữ
+                Mũ đang giữ
               </span>
-              <span className="text-2xl sm:text-3xl font-extrabold text-amber-500 font-mono">
+              <span className="text-xl sm:text-2xl font-extrabold text-blue-500 font-mono">
                 {totalHelmetsIssued}
               </span>
-              <span className="text-[10px] text-slate-400 block mt-0.5">mũ bảo hiểm</span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">mũ BH</span>
             </div>
 
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
+            <div className="p-3 sm:p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
               <span className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 block mb-1">
-                Tổng Áo đang giữ
+                Áo đang giữ
               </span>
-              <span className="text-2xl sm:text-3xl font-extrabold text-indigo-500 font-mono">
+              <span className="text-xl sm:text-2xl font-extrabold text-indigo-500 font-mono">
                 {totalShirtsIssued}
               </span>
-              <span className="text-[10px] text-slate-400 block mt-0.5">áo đồng phục</span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">áo đ.phục</span>
+            </div>
+
+            <div className="p-3 sm:p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
+              <span className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 block mb-1">
+                Thùng hàng
+              </span>
+              <span className="text-xl sm:text-2xl font-extrabold text-amber-500 font-mono">
+                {totalBoxesIssued}
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">thùng giao</span>
             </div>
           </div>
 
@@ -188,10 +200,10 @@ export const SummaryDashboard: React.FC<SummaryDashboardProps> = ({
               <span className="font-semibold text-rose-500 font-mono">{drivers.filter(d => d.isRevoked).length} người</span>
             </div>
             <div className="flex justify-between py-1">
-              <span className="text-slate-500">Tỷ lệ trang bị đủ cả mũ & áo:</span>
+              <span className="text-slate-500">Tỷ lệ đủ cả Mũ, Áo & Thùng:</span>
               <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">
                 {activeDrivers.length > 0 
-                  ? `${Math.round((activeDrivers.filter(d => d.hasHelmet && d.hasShirt).length / activeDrivers.length) * 100)}%` 
+                  ? `${Math.round((activeDrivers.filter(d => d.hasHelmet && d.hasShirt && (d.hasDeliveryBox !== false)).length / activeDrivers.length) * 100)}%` 
                   : '0%'}
               </span>
             </div>
@@ -249,7 +261,7 @@ export const SummaryDashboard: React.FC<SummaryDashboardProps> = ({
           {/* Cột 1: Cần thu hồi đồ */}
           <div className="p-3.5 sm:p-4 rounded-2xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20">
             <h3 className="font-bold text-xs text-rose-700 dark:text-rose-400 mb-2 flex items-center justify-between">
-              <span>Chưa trả đủ Mũ/Áo vi phạm</span>
+              <span>Chưa trả đủ hiện vật</span>
               <span className="px-1.5 py-0.5 rounded-full bg-rose-200 dark:bg-rose-900 text-rose-800 dark:text-rose-200 text-[10px] font-mono">
                 {driversNeedingReturn.length}
               </span>
@@ -266,7 +278,7 @@ export const SummaryDashboard: React.FC<SummaryDashboardProps> = ({
                   >
                     <div className="font-semibold text-slate-900 dark:text-slate-100">{d.name} ({d.code})</div>
                     <div className="text-[10px] text-rose-600 mt-0.5">
-                      Thiếu: {!d.revokedHelmet ? 'Mũ bảo hiểm ' : ''} {!d.revokedShirt ? 'Áo đồng phục' : ''}
+                      Thiếu: {!d.revokedHelmet ? 'Mũ bảo hiểm ' : ''} {!d.revokedShirt ? 'Áo đồng phục ' : ''} {!d.revokedBox ? 'Thùng hàng' : ''}
                     </div>
                   </div>
                 ))}

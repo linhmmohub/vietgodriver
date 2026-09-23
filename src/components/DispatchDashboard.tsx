@@ -20,32 +20,40 @@ import {
   Activity,
   UserPlus
 } from 'lucide-react';
-import { Driver, DriverAttendance, AttendanceShift, DriverShiftStatus } from '../types';
+import { Driver, DriverAttendance, AttendanceShift, DriverShiftStatus, AttendanceSettings, DriverLiveStatus } from '../types';
+import { getTodayDateString } from '../utils/formatters';
+import { LiveDriverMap } from './LiveDriverMap';
+import { getVietgoAvailability } from '../utils/availability';
 
 interface DispatchDashboardProps {
   drivers: Driver[];
   attendanceList: DriverAttendance[];
+  attendanceSettings: AttendanceSettings;
+  liveDriverStatuses: DriverLiveStatus[];
   onOpenDriverPortal: () => void;
   onUpdateAttendanceStatus: (attendance: DriverAttendance, newStatus: DriverShiftStatus, note?: string) => void;
   onAdminCheckInDriver: (driver: Driver, shift: AttendanceShift, status: DriverShiftStatus, zone?: string, note?: string) => void;
+  readOnly?: boolean;
 }
 
-const SHIFT_LABELS: Record<AttendanceShift, { label: string; time: string; badge: string }> = {
-  morning: { label: 'Ca Sáng', time: '06:00 - 12:00', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
-  afternoon: { label: 'Ca Chiều', time: '12:00 - 18:00', badge: 'bg-orange-500/20 text-orange-300 border-orange-500/30' },
-  evening: { label: 'Ca Tối', time: '18:00 - 23:00', badge: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
-  night: { label: 'Ca Đêm', time: '23:00 - 06:00', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
-  flexible: { label: 'Linh Hoạt', time: 'Toàn thời gian', badge: 'bg-teal-500/20 text-teal-300 border-teal-500/30' },
+const shiftInfo = (shifts: AttendanceShift | AttendanceShift[], settings: AttendanceSettings) => {
+  const ids = Array.isArray(shifts) ? shifts : [shifts];
+  const items = ids.map(shift => settings.shifts.find(value => value.id === shift)).filter(Boolean);
+  const availability = getVietgoAvailability(ids, settings);
+  return { label: items.map(item => item!.name).join(' · ') || 'Không bận cố định', time: items.map(item => item!.startTime && item!.endTime ? `${item!.startTime} - ${item!.endTime}` : item!.description || '').filter(Boolean).join(' · ') || 'Không bận cố định', available: availability.freeLabel, badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
 };
 
 export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
   drivers,
   attendanceList,
+  attendanceSettings,
+  liveDriverStatuses,
   onOpenDriverPortal,
   onUpdateAttendanceStatus,
   onAdminCheckInDriver,
+  readOnly = false,
 }) => {
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getTodayDateString);
   const [filterShift, setFilterShift] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
@@ -54,14 +62,35 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
   // Quick checkin modal state
   const [isQuickCheckinOpen, setIsQuickCheckinOpen] = useState(false);
   const [selectedDriverForCheckin, setSelectedDriverForCheckin] = useState<Driver | null>(null);
-  const [quickShift, setQuickShift] = useState<AttendanceShift>('morning');
+  const [quickShift, setQuickShift] = useState<AttendanceShift>('');
   const [quickStatus, setQuickStatus] = useState<DriverShiftStatus>('on_duty');
-  const [quickZone, setQuickZone] = useState('Quận 1 - Bến Thành');
+  const [quickZone, setQuickZone] = useState('');
+  const activeShifts = useMemo(() => attendanceSettings.shifts.filter(item => item.isActive).sort((a, b) => a.order - b.order), [attendanceSettings]);
+  const activeZones = useMemo(() => attendanceSettings.zones.filter(item => item.isActive).sort((a, b) => a.order - b.order), [attendanceSettings]);
   const [quickNote, setQuickNote] = useState('');
 
   // Filter attendance by selected date
   const dateAttendanceList = useMemo(() => {
     return attendanceList.filter(a => a.date === selectedDate);
+  }, [attendanceList, selectedDate]);
+
+  const weeklySummary = useMemo(() => {
+    const selected = new Date(`${selectedDate}T12:00:00`);
+    const mondayOffset = (selected.getDay() + 6) % 7;
+    const monday = new Date(selected);
+    monday.setDate(selected.getDate() - mondayOffset);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const start = monday.toISOString().slice(0, 10);
+    const end = sunday.toISOString().slice(0, 10);
+    const records = attendanceList.filter(item => item.date >= start && item.date <= end);
+    return {
+      start,
+      end,
+      records: records.length,
+      drivers: new Set(records.map(item => item.driverId)).size,
+      emergency: records.filter(item => item.status === 'emergency_leave').length,
+    };
   }, [attendanceList, selectedDate]);
 
   // Realtime KPIs
@@ -96,21 +125,24 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
   // Filtered attendance for table
   const filteredAttendance = useMemo(() => {
     return dateAttendanceList.filter(item => {
-      const matchShift = filterShift === 'all' || item.shift === filterShift;
+      const matchShift = filterShift === 'all' || (item.busyShiftIds?.length ? item.busyShiftIds : [item.shift]).includes(filterShift);
       const matchStatus = filterStatus === 'all' || item.status === filterStatus;
       const matchType = filterType === 'all' || item.workingType === filterType;
       const matchSearch = 
         item.driverName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.driverCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.driverPhone.includes(searchQuery) ||
-        (item.standbyZone && item.standbyZone.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.standbyZones || [item.standbyZone]).filter(Boolean).some(zone => zone!.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (item.note && item.note.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      return matchShift && matchStatus && matchType && matchSearch;
+      // Driver managers may only see the drivers who are actively on duty.
+      const canViewRecord = !readOnly || item.status === 'on_duty';
+      return canViewRecord && matchShift && matchStatus && matchType && matchSearch;
     });
   }, [dateAttendanceList, filterShift, filterStatus, filterType, searchQuery]);
 
   const handleOpenQuickCheckin = (driver?: Driver) => {
+    if (readOnly) return;
     if (driver) {
       setSelectedDriverForCheckin(driver);
     } else {
@@ -128,7 +160,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
 
     onAdminCheckInDriver(
       selectedDriverForCheckin,
-      quickShift,
+      quickShift || activeShifts[0]?.id || 'flexible',
       quickStatus,
       quickZone,
       quickNote.trim() || undefined
@@ -139,6 +171,8 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
 
   return (
     <div className="space-y-6">
+
+      <LiveDriverMap statuses={liveDriverStatuses} canViewLocation={!readOnly} canViewRoute={!readOnly} />
       
       {/* Top Banner: Realtime Dispatch & Action Buttons */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
@@ -172,27 +206,32 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
+                disabled={readOnly}
                 className="bg-transparent text-white focus:outline-hidden text-xs font-medium cursor-pointer"
               />
             </div>
 
+            <div className="hidden xl:block px-3 py-1.5 rounded-xl bg-violet-500/10 border border-violet-500/25 text-[11px] text-violet-200">
+              Tuần {weeklySummary.start.slice(8, 10)}/{weeklySummary.start.slice(5, 7)}–{weeklySummary.end.slice(8, 10)}/{weeklySummary.end.slice(5, 7)}: <strong>{weeklySummary.drivers} TX</strong> / {weeklySummary.records} lượt{weeklySummary.emergency > 0 ? ` • ${weeklySummary.emergency} nghỉ đột xuất` : ''}
+            </div>
+
             {/* Quick Dispatch Button for Drivers */}
-            <button
+            {!readOnly && <button
               onClick={onOpenDriverPortal}
               className="inline-flex items-center px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-md transition active:scale-95"
             >
               <UserCheck className="w-4 h-4 mr-1.5 text-slate-950 stroke-[2.5]" />
               Mở Cổng Tài Xế Điểm Danh
-            </button>
+            </button>}
 
             {/* Quick Check-in by Admin */}
-            <button
+            {!readOnly && <button
               onClick={() => handleOpenQuickCheckin()}
               className="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-200 hover:text-white hover:bg-slate-750 transition active:scale-95"
             >
               <UserPlus className="w-4 h-4 mr-1.5 text-emerald-400" />
               Điểm danh hộ
-            </button>
+            </button>}
           </div>
 
         </div>
@@ -316,11 +355,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
             className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-hidden focus:border-amber-400"
           >
             <option value="all">Tất cả khung giờ ca</option>
-            <option value="morning">Ca Sáng (06:00 - 12:00)</option>
-            <option value="afternoon">Ca Chiều (12:00 - 18:00)</option>
-            <option value="evening">Ca Tối (18:00 - 23:00)</option>
-            <option value="night">Ca Đêm (23:00 - 06:00)</option>
-            <option value="flexible">Linh Hoạt / Tự Do</option>
+            {activeShifts.map(item => <option key={item.id} value={item.id}>{item.name}{item.startTime && item.endTime ? ` (${item.startTime} - ${item.endTime})` : ''}</option>)}
           </select>
 
           {/* Filter Type */}
@@ -371,7 +406,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                 ? `Chưa có tài xế nào điểm danh trong ngày ${selectedDate}.` 
                 : 'Không có tài xế nào khớp bộ lọc tìm kiếm.'}
             </p>
-            {stats.notCheckedInDrivers.length > 0 && (
+            {!readOnly && stats.notCheckedInDrivers.length > 0 && (
               <div className="pt-2">
                 <button
                   onClick={() => handleOpenQuickCheckin()}
@@ -387,7 +422,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
             {/* MOBILE CARD VIEW (< md screens) */}
             <div className="md:hidden divide-y divide-slate-800">
               {filteredAttendance.map((item) => {
-                const shiftInfo = SHIFT_LABELS[item.shift] || SHIFT_LABELS.flexible;
+                        const currentShiftInfo = shiftInfo(item.busyShiftIds?.length ? item.busyShiftIds : item.shift, attendanceSettings);
                 const isEmergency = item.status === 'emergency_leave';
 
                 return (
@@ -444,13 +479,14 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                     {/* Middle details: Shift + Time + Zone */}
                     <div className="grid grid-cols-2 gap-2 text-xs bg-slate-850 p-2.5 rounded-xl border border-slate-800">
                       <div>
-                        <span className="text-[10px] text-slate-500 block">Ca làm việc:</span>
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border mt-0.5 ${shiftInfo.badge}`}>
-                          {shiftInfo.label}
+                        <span className="text-[10px] text-slate-500 block">Bận ở công ty:</span>
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border mt-0.5 ${currentShiftInfo.badge}`}>
+                          {currentShiftInfo.label}
                         </span>
                         <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
-                          {shiftInfo.time}
+                          {currentShiftInfo.time}
                         </span>
+                        <span className="text-[10px] text-emerald-300 block mt-1">Rảnh VietGo: {currentShiftInfo.available}</span>
                       </div>
 
                       <div>
@@ -465,10 +501,10 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                         )}
                       </div>
 
-                      {item.standbyZone && (
+                      {(item.standbyZones?.length || item.standbyZone) && (
                         <div className="col-span-2 pt-1 border-t border-slate-800/80 flex items-center text-[11px] text-slate-300">
                           <MapPin className="w-3.5 h-3.5 mr-1 text-amber-400 shrink-0" />
-                          <span className="truncate">{item.standbyZone}</span>
+                          <span className="truncate">{item.standbyZones?.join(' · ') || item.standbyZone}</span>
                         </div>
                       )}
 
@@ -480,7 +516,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                     </div>
 
                     {/* Quick action buttons for mobile */}
-                    <div className="flex items-center gap-1.5 pt-1">
+                    {!readOnly && <div className="flex items-center gap-1.5 pt-1">
                       {item.status !== 'on_duty' && (
                         <button
                           onClick={() => onUpdateAttendanceStatus(item, 'on_duty')}
@@ -505,7 +541,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                           <span>⏹ Ra ca</span>
                         </button>
                       )}
-                    </div>
+                    </div>}
                   </div>
                 );
               })}
@@ -518,7 +554,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                   <tr>
                     <th className="py-3.5 px-4">Tài Xế</th>
                     <th className="py-3.5 px-3">Hình Thức</th>
-                    <th className="py-3.5 px-3">Khung Giờ Ca</th>
+                    <th className="py-3.5 px-3">Giờ Bận / Rảnh VietGo</th>
                     <th className="py-3.5 px-3">Trạng Thái Làm Việc</th>
                     <th className="py-3.5 px-3">Giờ Vào / Ra Ca</th>
                     <th className="py-3.5 px-4">Trạm / Khu Vực Trực</th>
@@ -528,7 +564,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-800 text-slate-300">
                   {filteredAttendance.map((item) => {
-                    const shiftInfo = SHIFT_LABELS[item.shift] || SHIFT_LABELS.flexible;
+                    const currentShiftInfo = shiftInfo(item.busyShiftIds?.length ? item.busyShiftIds : item.shift, attendanceSettings);
                     const isEmergency = item.status === 'emergency_leave';
 
                     return (
@@ -575,12 +611,13 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                         {/* Shift */}
                         <td className="py-3.5 px-3">
                           <div className="flex flex-col">
-                            <span className={`inline-block w-fit px-2 py-0.5 rounded-md text-[10px] font-bold border ${shiftInfo.badge}`}>
-                              {shiftInfo.label}
+                            <span className={`inline-block w-fit px-2 py-0.5 rounded-md text-[10px] font-bold border ${currentShiftInfo.badge}`}>
+                              {currentShiftInfo.label}
                             </span>
                             <span className="text-[10px] text-slate-400 font-mono mt-0.5">
-                              {shiftInfo.time}
+                              {currentShiftInfo.time}
                             </span>
+                            <span className="text-[10px] text-emerald-300 mt-1">Rảnh: {currentShiftInfo.available}</span>
                           </div>
                         </td>
 
@@ -621,10 +658,10 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
 
                         {/* Standby Zone */}
                         <td className="py-3.5 px-4">
-                          {item.standbyZone ? (
+                          {item.standbyZones?.length || item.standbyZone ? (
                             <div className="flex items-center text-xs text-slate-200">
                               <MapPin className="w-3.5 h-3.5 mr-1 text-amber-400 shrink-0" />
-                              <span className="truncate max-w-[160px]">{item.standbyZone}</span>
+                              <span className="truncate max-w-[160px]">{item.standbyZones?.join(' · ') || item.standbyZone}</span>
                             </div>
                           ) : (
                             <span className="text-slate-500 text-[11px]">Chưa đăng ký trạm</span>
@@ -648,7 +685,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
 
                         {/* Quick Status Switching by Dispatcher */}
                         <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end space-x-1.5">
+                          {!readOnly ? <div className="flex items-center justify-end space-x-1.5">
                             {item.status !== 'on_duty' && (
                               <button
                                 onClick={() => onUpdateAttendanceStatus(item, 'on_duty')}
@@ -676,7 +713,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                                 Ra ca
                               </button>
                             )}
-                          </div>
+                          </div> : <span className="text-[11px] text-slate-500">Chỉ xem</span>}
                         </td>
 
                       </tr>
@@ -690,7 +727,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
       </div>
 
       {/* Non Checked-in Drivers Alert Box */}
-      {stats.notCheckedInDrivers.length > 0 && (
+      {!readOnly && stats.notCheckedInDrivers.length > 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
           <div className="flex items-center justify-between pb-3 border-b border-slate-800">
             <div className="flex items-center space-x-2">
@@ -723,12 +760,12 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                   </div>
                 </div>
 
-                <button
+                {!readOnly && <button
                   onClick={() => handleOpenQuickCheckin(d)}
                   className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 font-semibold text-[11px] transition"
                 >
                   Điểm danh
-                </button>
+                </button>}
               </div>
             ))}
           </div>
@@ -771,17 +808,13 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-300 font-semibold">Khung giờ ca:</label>
+                <label className="text-slate-300 font-semibold">Khung giờ bận ở công ty khác:</label>
                 <select
                   value={quickShift}
                   onChange={(e) => setQuickShift(e.target.value as AttendanceShift)}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-hidden"
                 >
-                  <option value="morning">Ca Sáng (06:00 - 12:00)</option>
-                  <option value="afternoon">Ca Chiều (12:00 - 18:00)</option>
-                  <option value="evening">Ca Tối (18:00 - 23:00)</option>
-                  <option value="night">Ca Đêm (23:00 - 06:00)</option>
-                  <option value="flexible">Linh Hoạt / Tự Do</option>
+                  {activeShifts.map(item => <option key={item.id} value={item.id}>{item.name}{item.startTime && item.endTime ? ` (${item.startTime} - ${item.endTime})` : ''}</option>)}
                 </select>
               </div>
 
@@ -805,9 +838,11 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                   type="text"
                   value={quickZone}
                   onChange={(e) => setQuickZone(e.target.value)}
-                  placeholder="Nhập trạm hoặc khu vực..."
+                  placeholder="Nhập một hoặc nhiều trạm, ngăn cách bằng dấu phẩy..."
+                  list="attendance-zones"
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-hidden"
                 />
+                <datalist id="attendance-zones">{activeZones.map(zone => <option key={zone.id} value={zone.name} />)}</datalist>
               </div>
 
               <div className="space-y-1">

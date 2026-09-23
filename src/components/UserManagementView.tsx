@@ -25,6 +25,18 @@ import {
 } from '../utils/auth';
 import { formatDate } from '../utils/formatters';
 
+const ROLE_LABELS: Record<UserRole, string> = {
+  super_admin: 'Cấp 1 · Admin (toàn quyền)',
+  manager: 'Cấp 2 · Quản lý vận hành',
+  staff: 'Cấp 3 · Quản lý ca trực',
+};
+
+const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
+  super_admin: 'Toàn quyền hệ thống, thu chi, báo cáo, cấu hình và phân quyền.',
+  manager: 'Quản lý hồ sơ tài xế, cấp phát/thu hồi đồng phục và điểm danh.',
+  staff: 'Chỉ xem các tài xế đang trong ca trực; không được sửa dữ liệu.',
+};
+
 interface UserManagementViewProps {
   currentUser: AuthSession;
   onRefreshSession: () => void;
@@ -43,7 +55,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [newDisplayName, setNewDisplayName] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newNotes, setNewNotes] = useState('');
-  const [newRole, setNewRole] = useState<UserRole>('staff');
+  const [newRole, setNewRole] = useState<UserRole>('manager');
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -52,6 +64,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const [editNewPassword, setEditNewPassword] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editIsActive, setEditIsActive] = useState(true);
+  const [editRole, setEditRole] = useState<UserRole>('staff');
 
   const reloadUsers = () => {
     setUsers(getSystemUsers());
@@ -62,7 +75,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
     setNewDisplayName('');
     setNewPassword('');
     setNewNotes('');
-    setNewRole('staff');
+    setNewRole('manager');
     setErrorMessage('');
     setSuccessMessage('');
     setIsAddModalOpen(true);
@@ -99,6 +112,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
     setEditNewPassword('');
     setEditNotes(user.notes || '');
     setEditIsActive(user.isActive);
+    setEditRole(user.role);
     setErrorMessage('');
     setSuccessMessage('');
   };
@@ -111,6 +125,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
     const res = updateSubordinateUser(currentUser, editingUser.id, {
       displayName: editDisplayName,
       newPassword: editNewPassword.trim() || undefined,
+      role: editRole,
       notes: editNotes,
       isActive: editIsActive,
     });
@@ -171,10 +186,10 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
             </div>
             <div>
               <h1 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-slate-100">
-                Quản Lý Tài Khoản & Phân Quyền Cấp Dưới
+                Quản Lý Tài Khoản & Phân Quyền
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Admin Tổng phân quyền: Cấp dưới chỉ thao tác mục Tài xế, không xem được Chi tiêu nội bộ & Báo cáo quỹ
+                Admin Tổng tạo và thay đổi 3 cấp quyền: Admin, Quản lý vận hành và Quản lý ca trực.
               </p>
             </div>
           </div>
@@ -184,34 +199,38 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
             className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-xs flex items-center space-x-1.5 transition active:scale-95 shrink-0"
           >
             <UserPlus className="w-4 h-4" />
-            <span>Thêm Tài Khoản Cấp Dưới Mới</span>
+            <span>Tạo Tài Khoản</span>
           </button>
         </div>
 
         {/* Roles explanation card */}
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
           <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs">
             <div className="flex items-center space-x-1.5 text-amber-700 dark:text-amber-300 font-bold mb-1">
               <ShieldCheck className="w-4 h-4 text-amber-500" />
-              <span>Vai trò: Admin Tổng (Super Admin)</span>
+              <span>Cấp 1: Admin Tổng</span>
             </div>
             <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
-              • Toàn quyền tối cao hệ thống.<br />
-              • Quản lý mục Tài Xế, Cấp phát đồng phục & Tiền cọc/Hoàn cọc.<br />
-              • Quản lý mục Chi Tiêu Nội Bộ & Hóa đơn chuyển khoản.<br />
-              • Báo cáo tổng hợp cân đối quỹ ròng & Dòng tiền tài chính.<br />
-              • Phân quyền, cấp mật khẩu cho Cấp dưới và xem toàn bộ Nhật Ký Thao Tác (Audit Logs).
+              Toàn quyền: tài xế, đồng phục, thu chi, báo cáo, cấu hình và tạo/phân quyền tài khoản.
             </p>
           </div>
 
+          <div className="p-3.5 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-xs">
+            <div className="flex items-center space-x-1.5 text-indigo-700 dark:text-indigo-300 font-bold mb-1">
+              <Car className="w-4 h-4 text-indigo-500" />
+              <span>Cấp 2: Quản Lý Vận Hành</span>
+            </div>
+            <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
+              Quản lý toàn bộ mảng tài xế và đồng phục: tạo/sửa/xóa, cấp phát, thu hồi, cọc/hoàn cọc và điểm danh. Không xem thu chi, báo cáo, cấu hình hay tài khoản.
+            </p>
+          </div>
           <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs">
             <div className="flex items-center space-x-1.5 text-indigo-700 dark:text-indigo-300 font-bold mb-1">
               <Car className="w-4 h-4 text-indigo-500" />
-              <span>Vai trò: Cấp Dưới (Chỉ Thao Tác Mục Tài Xế)</span>
+              <span>Cấp 3: Quản Lý Ca Trực</span>
             </div>
             <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
-              • <strong>CHỈ được phép thao tác mục Tài Xế:</strong> Thêm tài xế mới, sửa thông tin cá nhân, ghi nhận cấp mũ/áo, thu tiền cọc, ghi nhận hoàn tiền khi thu hồi vi phạm.<br />
-              • <strong>BỊ KHÓA HOÀN TOÀN:</strong> Không xem được mục Chi Tiêu Nội Bộ, không xem được Báo Cáo Quỹ Ròng, không thể xuất/nhập sao lưu hay can thiệp tài khoản khác.
+              Chỉ xem được tài xế đang trong ca trực tại màn hình Điểm Danh. Không thể tạo, sửa, xóa hoặc thay đổi trạng thái.
             </p>
           </div>
         </div>
@@ -231,6 +250,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
           {users.map((user) => {
             const isSuperAdmin = user.role === 'super_admin';
+            const isOperationsManager = user.role === 'manager';
             const isRootAdmin = user.username === 'admin';
 
             return (
@@ -243,7 +263,9 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                   <div className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 ${
                     isSuperAdmin
                       ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
-                      : 'bg-indigo-500/15 text-indigo-500 border border-indigo-500/30'
+                      : isOperationsManager
+                        ? 'bg-sky-500/15 text-sky-500 border border-sky-500/30'
+                        : 'bg-indigo-500/15 text-indigo-500 border border-indigo-500/30'
                   }`}>
                     {isSuperAdmin ? <ShieldCheck className="w-5 h-5 stroke-[2.2]" /> : <User className="w-5 h-5 stroke-[2.2]" />}
                   </div>
@@ -261,9 +283,11 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                       <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${
                         isSuperAdmin
                           ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
-                          : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800'
+                          : isOperationsManager
+                            ? 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-800'
+                            : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800'
                       }`}>
-                        {isSuperAdmin ? 'Admin Tổng (Toàn Quyền)' : 'Cấp Dưới (Chỉ Thao Tác Tài Xế)'}
+                        {ROLE_LABELS[user.role]}
                       </span>
 
                       {/* Active / Inactive badge */}
@@ -345,7 +369,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center space-x-2 text-purple-600 dark:text-purple-400 font-extrabold text-base">
                 <UserPlus className="w-5 h-5" />
-                <span>Thêm Tài Khoản Cấp Dưới Mới</span>
+                <span>Tạo Tài Khoản Mới</span>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -422,13 +446,12 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                   onChange={(e) => setNewRole(e.target.value as UserRole)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
                 >
-                  <option value="staff">Cấp Dưới: Chỉ thao tác mục Tài xế (Khuyên dùng)</option>
-                  <option value="super_admin">Admin Tổng: Toàn quyền hệ thống</option>
+                  <option value="super_admin">Cấp 1 · Admin Tổng: Toàn quyền hệ thống</option>
+                  <option value="manager">Cấp 2 · Quản lý vận hành: Tài xế & đồng phục</option>
+                  <option value="staff">Cấp 3 · Quản lý ca trực: Chỉ xem ca làm</option>
                 </select>
                 <span className="text-[10px] text-slate-400 mt-1 block">
-                  {newRole === 'staff' 
-                    ? '✓ Tài khoản này chỉ được mở và thao tác tab Tài xế, không xem được Chi tiêu nội bộ & Báo cáo quỹ.'
-                    : '⚠ Tài khoản này sẽ có toàn quyền như Admin Tổng.'}
+                  {ROLE_DESCRIPTIONS[newRole]}
                 </span>
               </div>
 
@@ -510,9 +533,9 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Đặt lại mật khẩu mới
+               <div>
+                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                   Đặt lại mật khẩu mới
                 </label>
                 <input
                   type="text"
@@ -521,10 +544,29 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
                   onChange={(e) => setEditNewPassword(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
                 />
-                <span className="text-[10px] text-slate-400 mt-0.5 block">Nhập mật khẩu mới (tối thiểu 4 ký tự) để cấp lại cho nhân viên</span>
-              </div>
+                 <span className="text-[10px] text-slate-400 mt-0.5 block">Nhập mật khẩu mới (tối thiểu 4 ký tự) để cấp lại cho nhân viên</span>
+               </div>
 
-              <div>
+               <div>
+                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                   Cấp quyền
+                 </label>
+                 <select
+                   value={editRole}
+                   onChange={(e) => setEditRole(e.target.value as UserRole)}
+                   disabled={editingUser.username === 'admin'}
+                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-60"
+                 >
+                   <option value="super_admin">Cấp 1 · Admin Tổng</option>
+                   <option value="manager">Cấp 2 · Quản lý vận hành</option>
+                   <option value="staff">Cấp 3 · Quản lý ca trực</option>
+                 </select>
+                 <span className="text-[10px] text-slate-400 mt-1 block">
+                   {editingUser.username === 'admin' ? 'Tài khoản Admin gốc luôn giữ cấp 1 để bảo đảm hệ thống còn quản trị viên.' : ROLE_DESCRIPTIONS[editRole]}
+                 </span>
+               </div>
+
+               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Ghi chú
                 </label>

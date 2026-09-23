@@ -3,6 +3,7 @@ import {
   Search, 
   HardHat, 
   Shirt, 
+  Package,
   DollarSign, 
   ShieldAlert, 
   CheckCircle2, 
@@ -25,7 +26,7 @@ import {
   UserCheck,
   Key
 } from 'lucide-react';
-import { Driver } from '../types';
+import { Driver, DriverWorkflowSettings } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
 interface DriverListProps {
@@ -35,6 +36,7 @@ interface DriverListProps {
   onViewDriver: (driver: Driver) => void;
   onAddNewDriver: () => void;
   onApproveDriver?: (driver: Driver) => void;
+  driverWorkflowSettings?: DriverWorkflowSettings;
 }
 
 type FilterCategory = 
@@ -46,6 +48,7 @@ type FilterCategory =
   | 'revoked' 
   | 'need_helmet' 
   | 'need_shirt' 
+  | 'need_box'
   | 'debt' 
   | 'pending_refund';
 type ViewMode = 'cards' | 'table';
@@ -57,10 +60,12 @@ export const DriverList: React.FC<DriverListProps> = ({
   onViewDriver,
   onAddNewDriver,
   onApproveDriver,
+  driverWorkflowSettings,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<FilterCategory>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [workflowStatusFilter, setWorkflowStatusFilter] = useState('all');
 
   const filteredDrivers = useMemo(() => {
     return drivers.filter((driver) => {
@@ -76,6 +81,7 @@ export const DriverList: React.FC<DriverListProps> = ({
         (driver.rejectionReason && driver.rejectionReason.toLowerCase().includes(term));
 
       if (!matchSearch) return false;
+      if (workflowStatusFilter !== 'all' && driver.approvalStatus !== workflowStatusFilter) return false;
 
       // Filter matching
       switch (filter) {
@@ -93,6 +99,8 @@ export const DriverList: React.FC<DriverListProps> = ({
           return !driver.hasHelmet && !driver.isRevoked && driver.approvalStatus !== 'pending';
         case 'need_shirt':
           return !driver.hasShirt && !driver.isRevoked && driver.approvalStatus !== 'pending';
+        case 'need_box':
+          return !driver.hasDeliveryBox && !driver.isRevoked && driver.approvalStatus !== 'pending';
         case 'debt':
           return driver.paymentStatus !== 'paid';
         case 'pending_refund':
@@ -101,7 +109,7 @@ export const DriverList: React.FC<DriverListProps> = ({
           return true;
       }
     });
-  }, [drivers, searchTerm, filter]);
+  }, [drivers, searchTerm, filter, workflowStatusFilter]);
 
   return (
     <div className="space-y-4">
@@ -131,6 +139,11 @@ export const DriverList: React.FC<DriverListProps> = ({
             )}
           </div>
 
+          <select value={workflowStatusFilter} onChange={(e) => setWorkflowStatusFilter(e.target.value)} className="px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200">
+            <option value="all">Tất cả trạng thái hồ sơ</option>
+            {(driverWorkflowSettings?.approvalStatuses || []).filter(item => item.isActive).sort((a, b) => a.order - b.order).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+
           {/* Controls: Count & View Switcher */}
           <div className="flex items-center justify-between sm:justify-end gap-2.5">
             <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
@@ -152,7 +165,7 @@ export const DriverList: React.FC<DriverListProps> = ({
               </button>
               <button
                 onClick={() => setViewMode('table')}
-                className={`p-1.5 rounded-lg text-xs flex items-center transition ${
+                className={`hidden sm:flex p-1.5 rounded-lg text-xs items-center transition ${
                   viewMode === 'table'
                     ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs font-semibold'
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -257,6 +270,17 @@ export const DriverList: React.FC<DriverListProps> = ({
             }`}
           >
             Thiếu Áo ({drivers.filter(d => !d.hasShirt && !d.isRevoked).length})
+          </button>
+
+          <button
+            onClick={() => setFilter('need_box')}
+            className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition shrink-0 ${
+              filter === 'need_box'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            Thiếu Thùng ({drivers.filter(d => (d.hasDeliveryBox === false || !d.hasDeliveryBox) && !d.isRevoked).length})
           </button>
 
           <button
@@ -432,50 +456,73 @@ export const DriverList: React.FC<DriverListProps> = ({
                 {/* Body: Đồng Phục & Tiền Cọc */}
                 <div className="p-4 space-y-3 text-xs flex-1">
                   
-                  {/* Grid 2 cột Mũ & Áo */}
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* Grid 3 cột Mũ, Áo & Thùng */}
+                  <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                     {/* Cột Mũ */}
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold flex items-center mb-1">
-                        <HardHat className="w-3 h-3 mr-1 text-amber-500" />
-                        Mũ Bảo Hiểm
+                    <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-between">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold flex items-center mb-1 truncate">
+                        <HardHat className="w-3 h-3 mr-1 text-amber-500 shrink-0" />
+                        Mũ
                       </span>
                       {driver.isRevoked && driver.revokedHelmet ? (
                         <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center">
-                          <Check className="w-3 h-3 mr-1 text-emerald-500" />
-                          Đã trả lại mũ
+                          <Check className="w-3 h-3 mr-1 text-emerald-500 shrink-0" />
+                          Đã trả
                         </span>
                       ) : driver.hasHelmet ? (
                         <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                          Đã cấp ({driver.helmetQuantity || 1} cái)
+                          {driver.helmetQuantity || 1} cái
                         </span>
                       ) : (
                         <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center">
-                          <AlertTriangle className="w-3 h-3 mr-1" />
-                          Chưa có mũ
+                          <AlertTriangle className="w-3 h-3 mr-1 shrink-0" />
+                          Thiếu
                         </span>
                       )}
                     </div>
 
                     {/* Cột Áo */}
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold flex items-center mb-1">
-                        <Shirt className="w-3 h-3 mr-1 text-indigo-500" />
-                        Áo Đồng Phục
+                    <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-between">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold flex items-center mb-1 truncate">
+                        <Shirt className="w-3 h-3 mr-1 text-indigo-500 shrink-0" />
+                        Áo ({driver.shirtSize || 'L'})
                       </span>
                       {driver.isRevoked && driver.revokedShirt ? (
                         <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center">
-                          <Check className="w-3 h-3 mr-1 text-emerald-500" />
-                          Đã trả lại áo
+                          <Check className="w-3 h-3 mr-1 text-emerald-500 shrink-0" />
+                          Đã trả
                         </span>
                       ) : driver.hasShirt ? (
                         <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
-                          Size {driver.shirtSize} ({driver.shirtQuantity || 1} áo)
+                          {driver.shirtQuantity || 1} cái
                         </span>
                       ) : (
                         <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center">
-                          <AlertTriangle className="w-3 h-3 mr-1" />
-                          Chưa có áo
+                          <AlertTriangle className="w-3 h-3 mr-1 shrink-0" />
+                          Thiếu
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Cột Thùng Hàng */}
+                    <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-between">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold flex items-center mb-1 truncate">
+                        <Package className="w-3 h-3 mr-1 text-amber-500 shrink-0" />
+                        Thùng
+                      </span>
+                      {driver.isRevoked && driver.revokedBox ? (
+                        <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center">
+                          <Check className="w-3 h-3 mr-1 text-emerald-500 shrink-0" />
+                          Đã trả
+                        </span>
+                      ) : driver.hasDeliveryBox !== false ? (
+                        <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                          {driver.boxQuantity || 1} cái
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center">
+                          <AlertTriangle className="w-3 h-3 mr-1 shrink-0" />
+                          Thiếu
                         </span>
                       )}
                     </div>
@@ -589,6 +636,7 @@ export const DriverList: React.FC<DriverListProps> = ({
                   <th className="py-3 px-4">Tài Xế</th>
                   <th className="py-3 px-4">Mũ Bảo Hiểm</th>
                   <th className="py-3 px-4">Áo Đồng Phục</th>
+                  <th className="py-3 px-4">Thùng Hàng</th>
                   <th className="py-3 px-4">Tiền Thu Đồng Phục</th>
                   <th className="py-3 px-4">Tình Trạng & Hoàn Tiền</th>
                   <th className="py-3 px-4 text-right">Thao Tác</th>
@@ -700,7 +748,7 @@ export const DriverList: React.FC<DriverListProps> = ({
                           <div>
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                               <Shirt className="w-3 h-3 mr-1 text-indigo-600" />
-                              Size {driver.shirtSize} ({driver.shirtQuantity || 1} áo)
+                              Size {driver.shirtSize || 'L'} ({driver.shirtQuantity || 1} cái)
                             </span>
                             {driver.shirtDate && (
                               <div className="text-[10px] text-slate-400 mt-0.5">
@@ -712,6 +760,33 @@ export const DriverList: React.FC<DriverListProps> = ({
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
                             <AlertTriangle className="w-3 h-3 mr-1" />
                             Chưa có áo
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Cột 4: Thùng đựng hàng */}
+                      <td className="py-3 px-4">
+                        {driver.isRevoked && driver.revokedBox ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                            <CheckCircle2 className="w-3 h-3 mr-1 text-slate-500" />
+                            Đã thu hồi thùng
+                          </span>
+                        ) : driver.hasDeliveryBox !== false ? (
+                          <div>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                              <Package className="w-3 h-3 mr-1 text-amber-600" />
+                              Đã cấp ({driver.boxQuantity || 1} thùng)
+                            </span>
+                            {driver.boxDate && (
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                Ngày nhận: {formatDate(driver.boxDate)}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            Chưa có thùng
                           </span>
                         )}
                       </td>

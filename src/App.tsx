@@ -4,8 +4,7 @@ import {
   saveStoredDrivers, 
   getStoredExpenses, 
   saveStoredExpenses,
-  getStoredAttendance,
-  saveStoredAttendance,
+  clearStoredDriverSession,
   getStoredDriverSession,
   saveStoredDriverSession
 } from './utils/storage';
@@ -26,18 +25,55 @@ import {
 import { 
   subscribeCloudDrivers, 
   subscribeCloudExpenses, 
+  subscribeCloudAttendance,
+  subscribeCloudDriverLiveStatus,
   subscribeCloudUsers, 
   subscribeCloudLogs,
-  subscribeCloudAttendance,
+  subscribeCloudEquipmentCategories,
+  subscribeCloudExpenseCategories,
+  subscribeCloudFeeSettings,
+  subscribeCloudDriverWorkflow,
+  subscribeCloudAuthSettings,
+  subscribeCloudAttendanceSettings,
   saveDriverToCloud,
   deleteDriverFromCloud,
   saveExpenseToCloud,
-  deleteExpenseFromCloud,
   saveAttendanceToCloud,
-  deleteAttendanceFromCloud,
+  saveDriverLiveStatusToCloud,
+  saveDriverRoutePointToCloud,
+  deleteExpenseFromCloud,
+  saveEquipmentCategoryToCloud,
+  deleteEquipmentCategoryFromCloud,
+  saveExpenseCategoryToCloud,
+  deleteExpenseCategoryFromCloud,
+  saveFeeSettingsToCloud,
+  saveDriverWorkflowToCloud,
+  saveAuthSettingsToCloud,
+  saveAttendanceSettingsToCloud,
   restoreDatabaseToCloud,
-  initializeCloudDatabaseIfNeeded
+  initializeCloudDatabaseIfNeeded,
+  initializeDriverWorkflowIfNeeded,
+  initializeAuthSettingsIfNeeded,
+  initializeAttendanceSettingsIfNeeded,
+  testFirestoreConnection
 } from './services/firestoreSync';
+import { 
+  getStoredEquipmentCategories, 
+  saveStoredEquipmentCategories, 
+  getStoredExpenseCategories, 
+  saveStoredExpenseCategories, 
+  getStoredFeeSettings, 
+  saveStoredFeeSettings,
+  DEFAULT_EQUIPMENT_CATEGORIES,
+  DEFAULT_EXPENSE_CATEGORIES,
+  DEFAULT_SYSTEM_FEE_SETTINGS,
+  getStoredDriverWorkflowSettings,
+  saveStoredDriverWorkflowSettings,
+  DEFAULT_DRIVER_WORKFLOW_SETTINGS,
+  getStoredAttendanceSettings,
+  saveStoredAttendanceSettings,
+  DEFAULT_ATTENDANCE_SETTINGS
+} from './utils/categories';
 import { 
   Driver, 
   ExpenseItem, 
@@ -45,12 +81,19 @@ import {
   AuthSession, 
   AuthSettings, 
   AuditLogItem,
+  EquipmentCategory,
+  ExpenseCategoryConfig,
+  SystemFeeSettings,
+  DriverWorkflowSettings,
+  AttendanceSettings,
   DriverAttendance,
   DriverSession,
   AttendanceShift,
-  DriverShiftStatus
+  DriverShiftStatus,
+  DriverLiveStatus,
+  DriverRoutePoint
 } from './types';
-import { downloadCSV, formatDate } from './utils/formatters';
+import { downloadCSV, formatDate, getTodayDateString } from './utils/formatters';
 import { Header } from './components/Header';
 import { StatsCards } from './components/StatsCards';
 import { DriverList } from './components/DriverList';
@@ -63,19 +106,30 @@ import { BackupModal } from './components/BackupModal';
 import { SummaryDashboard } from './components/SummaryDashboard';
 import { AuditLogView } from './components/AuditLogView';
 import { UserManagementView } from './components/UserManagementView';
-import { DispatchDashboard } from './components/DispatchDashboard';
-import { DriverPortalModal } from './components/DriverPortalModal';
+import { UniformInventoryView } from './components/UniformInventoryView';
+import { CategoryManagementView } from './components/CategoryManagementView';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { AdminProfileModal } from './components/AdminProfileModal';
 import { AdminLockScreen } from './components/AdminLockScreen';
-import { Plus, CloudCheck, RefreshCw } from 'lucide-react';
+import { DriverWorkflowManagementView } from './components/DriverWorkflowManagementView';
+import { AttendanceSettingsManagementView } from './components/AttendanceSettingsManagementView';
+import { DispatchDashboard } from './components/DispatchDashboard';
+import { DriverPortalModal } from './components/DriverPortalModal';
+import { Plus } from 'lucide-react';
 
 export default function App() {
   const [drivers, setDrivers] = useState<Driver[]>(() => getStoredDrivers());
   const [expenses, setExpenses] = useState<ExpenseItem[]>(() => getStoredExpenses());
-  const [logs, setLogs] = useState<AuditLogItem[]>(() => getStoredAuditLogs());
-  const [attendanceList, setAttendanceList] = useState<DriverAttendance[]>(() => getStoredAttendance());
+  const [attendanceList, setAttendanceList] = useState<DriverAttendance[]>([]);
+  const [liveDriverStatuses, setLiveDriverStatuses] = useState<DriverLiveStatus[]>([]);
   const [driverSession, setDriverSession] = useState<DriverSession | null>(() => getStoredDriverSession());
+  const [isDriverPortalOpen, setIsDriverPortalOpen] = useState(false);
+  const [logs, setLogs] = useState<AuditLogItem[]>(() => getStoredAuditLogs());
+  const [equipmentCategories, setEquipmentCategories] = useState<EquipmentCategory[]>(() => getStoredEquipmentCategories());
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategoryConfig[]>(() => getStoredExpenseCategories());
+  const [systemFeeSettings, setSystemFeeSettings] = useState<SystemFeeSettings>(() => getStoredFeeSettings());
+  const [driverWorkflowSettings, setDriverWorkflowSettings] = useState<DriverWorkflowSettings>(() => getStoredDriverWorkflowSettings());
+  const [attendanceSettings, setAttendanceSettings] = useState<AttendanceSettings>(() => getStoredAttendanceSettings());
   const [activeTab, setActiveTab] = useState<ActiveTab>('drivers');
   const [isCloudSynced, setIsCloudSynced] = useState(false);
 
@@ -84,7 +138,6 @@ export default function App() {
   const [authSettings, setAuthSettings] = useState<AuthSettings>(() => getAuthSettings());
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [isDriverPortalOpen, setIsDriverPortalOpen] = useState(false);
   const [loginPromptMessage, setLoginPromptMessage] = useState<string | undefined>();
 
   // Modals
@@ -102,20 +155,56 @@ export default function App() {
 
   // Initialize Cloud Firestore and setup real-time listeners for all devices
   useEffect(() => {
-    // 1. Listen for drivers in real time
-    const unsubDrivers = subscribeCloudDrivers((cloudDrivers) => {
-      setDrivers(cloudDrivers);
-      saveStoredDrivers(cloudDrivers);
-      setIsCloudSynced(true);
+    // Probe database connectivity and initialize if empty
+    testFirestoreConnection().then(res => {
+      console.log('Firebase Firestore live connection status:', res);
+      if (res.connected) {
+        setIsCloudSynced(true);
+      }
+    }).catch(err => {
+      console.warn('Firestore probe warning:', err);
     });
 
-    // 2. Listen for expenses in real time
-    const unsubExpenses = subscribeCloudExpenses((cloudExpenses) => {
-      setExpenses(cloudExpenses);
-      saveStoredExpenses(cloudExpenses);
-    });
+    // Initialize local data into an empty cloud database before subscribing.
+    // Firestore is the canonical source after this bootstrap completes.
+    const cloudInitPromise = initializeCloudDatabaseIfNeeded(getStoredDrivers(), getStoredExpenses());
+    initializeDriverWorkflowIfNeeded();
+    initializeAuthSettingsIfNeeded();
+    initializeAttendanceSettingsIfNeeded();
+
+    let unsubDrivers = () => {};
+    let unsubExpenses = () => {};
+    let isDisposed = false;
+
+    void (async () => {
+      const initialized = await cloudInitPromise;
+      if (!initialized || isDisposed) return;
+
+      // A snapshot, including an empty one after a deletion, always replaces
+      // the local cache. This prevents another browser from restoring deleted data.
+      unsubDrivers = subscribeCloudDrivers((cloudDrivers) => {
+        setDrivers(cloudDrivers);
+        saveStoredDrivers(cloudDrivers);
+        setIsCloudSynced(true);
+      });
+
+      unsubExpenses = subscribeCloudExpenses((cloudExpenses) => {
+        setExpenses(cloudExpenses);
+        saveStoredExpenses(cloudExpenses);
+        setIsCloudSynced(true);
+      });
+    })();
 
     // 3. Listen for system users & roles in real time
+    const unsubAttendance = subscribeCloudAttendance((attendance) => {
+      setAttendanceList(attendance);
+    });
+
+    const unsubLiveDrivers = subscribeCloudDriverLiveStatus((statuses) => {
+      setLiveDriverStatuses(statuses);
+    });
+
+    // 4. Listen for system users & roles in real time
     const unsubUsers = subscribeCloudUsers((cloudUsers) => {
       saveSystemUsers(cloudUsers);
     });
@@ -126,18 +215,59 @@ export default function App() {
       saveStoredAuditLogs(cloudLogs);
     });
 
-    // 5. Listen for driver attendance / checkin in real time
-    const unsubAttendance = subscribeCloudAttendance((cloudAttendance) => {
-      setAttendanceList(cloudAttendance);
-      saveStoredAttendance(cloudAttendance);
+    // 5. Listen for equipment categories in real time
+    const unsubEquip = subscribeCloudEquipmentCategories((cats) => {
+      if (cats && cats.length > 0) {
+        setEquipmentCategories(cats);
+        saveStoredEquipmentCategories(cats);
+      }
+    });
+
+    // 6. Listen for expense categories in real time
+    const unsubExpCats = subscribeCloudExpenseCategories((cats) => {
+      if (cats && cats.length > 0) {
+        setExpenseCategories(cats);
+        saveStoredExpenseCategories(cats);
+      }
+    });
+
+    // 7. Listen for system fee settings in real time
+    const unsubFee = subscribeCloudFeeSettings((fees) => {
+      if (fees) {
+        setSystemFeeSettings(fees);
+        saveStoredFeeSettings(fees);
+      }
+    });
+
+    const unsubWorkflow = subscribeCloudDriverWorkflow((workflow) => {
+      setDriverWorkflowSettings(workflow);
+      saveStoredDriverWorkflowSettings(workflow);
+    });
+
+    const unsubAuthSettings = subscribeCloudAuthSettings((settings) => {
+      setAuthSettings(settings);
+      saveAuthSettings(settings);
+    });
+
+    const unsubAttendanceSettings = subscribeCloudAttendanceSettings((settings) => {
+      setAttendanceSettings(settings);
+      saveStoredAttendanceSettings(settings);
     });
 
     return () => {
+      isDisposed = true;
       unsubDrivers();
       unsubExpenses();
+      unsubAttendance();
+      unsubLiveDrivers();
       unsubUsers();
       unsubLogs();
-      unsubAttendance();
+      unsubEquip();
+      unsubExpCats();
+      unsubFee();
+      unsubWorkflow();
+      unsubAuthSettings();
+      unsubAttendanceSettings();
     };
   }, []);
 
@@ -146,40 +276,56 @@ export default function App() {
     saveStoredDrivers(drivers);
   }, [drivers]);
 
-  // Auto-open driver portal if URL requests it
-  useEffect(() => {
-    if (
-      typeof window !== 'undefined' &&
-      (window.location.hash === '#diemdanh' ||
-        window.location.hash === '#driver' ||
-        window.location.search.includes('portal=driver') ||
-        window.location.search.includes('driver=true') ||
-        window.location.search.includes('checkin=1'))
-    ) {
-      setIsDriverPortalOpen(true);
-    }
-  }, []);
-
   useEffect(() => {
     saveStoredExpenses(expenses);
   }, [expenses]);
 
+  // A remembered device session must still belong to an active, approved driver.
   useEffect(() => {
-    saveStoredAttendance(attendanceList);
-  }, [attendanceList]);
+    if (!driverSession) return;
+    const driver = drivers.find(item => item.id === driverSession.driverId);
+    const expired = !driverSession.expiresAt || new Date(driverSession.expiresAt).getTime() <= Date.now();
+    if (!driver || driver.isRevoked || driver.approvalStatus === 'pending' || expired) {
+      setDriverSession(null);
+      clearStoredDriverSession();
+    }
+  }, [driverSession, drivers]);
 
   useEffect(() => {
-    saveStoredDriverSession(driverSession);
-  }, [driverSession]);
+    saveStoredEquipmentCategories(equipmentCategories);
+  }, [equipmentCategories]);
+
+  useEffect(() => {
+    saveStoredExpenseCategories(expenseCategories);
+  }, [expenseCategories]);
+
+  useEffect(() => {
+    saveStoredFeeSettings(systemFeeSettings);
+  }, [systemFeeSettings]);
+
+  useEffect(() => {
+    saveStoredDriverWorkflowSettings(driverWorkflowSettings);
+  }, [driverWorkflowSettings]);
+
+  useEffect(() => {
+    saveStoredAttendanceSettings(attendanceSettings);
+  }, [attendanceSettings]);
 
   // Keep logs refreshed
   const reloadLogs = () => {
     setLogs(getStoredAuditLogs());
   };
 
-  // Restrict staff tab access: Subordinates can access 'drivers' and 'dispatch'
+  const isSuperAdmin = adminUser?.role === 'super_admin';
+  const isOperationsManager = adminUser?.role === 'manager';
+  const canManageDriverOperations = isSuperAdmin || isOperationsManager;
+
+  // Keep every role inside the modules it has been granted.
   useEffect(() => {
-    if (adminUser && adminUser.role === 'staff' && activeTab !== 'drivers' && activeTab !== 'dispatch') {
+    if (adminUser && adminUser.role === 'staff' && activeTab !== 'attendance') {
+      setActiveTab('attendance');
+    }
+    if (adminUser && adminUser.role === 'manager' && !['drivers', 'inventory', 'attendance'].includes(activeTab)) {
       setActiveTab('drivers');
     }
   }, [adminUser, activeTab]);
@@ -202,6 +348,14 @@ export default function App() {
     handleLogout();
   };
 
+  const handleUpdateAuthSettings = async (settings: AuthSettings) => {
+    setAuthSettings(settings);
+    saveAuthSettings(settings);
+    if (!(await saveAuthSettingsToCloud(settings))) {
+      alert('Không thể lưu thiết lập bảo mật lên Cloud. Vui lòng thử lại khi có kết nối.');
+    }
+  };
+
   // Helper for admin-only restriction
   const requireSuperAdmin = (featureName: string): boolean => {
     if (!adminUser) {
@@ -210,32 +364,40 @@ export default function App() {
       return false;
     }
     if (adminUser.role !== 'super_admin') {
-      alert(`Tính năng "${featureName}" chỉ dành cho tài khoản Admin Tổng. Tài khoản cấp dưới chỉ có quyền thao tác mục Tài xế.`);
+      alert(`Tính năng "${featureName}" chỉ dành cho tài khoản Admin Tổng. Quản lý tài xế chỉ được xem ai đang trong ca trực.`);
       return false;
     }
     return true;
   };
 
-  // DRIVER ACTIONS (Accessible by both Super Admin and Subordinates)
-  const handleOpenNewDriver = () => {
+  const requireDriverOperationsManager = (featureName: string): boolean => {
     if (!adminUser) {
+      setLoginPromptMessage('Vui lòng đăng nhập để tiếp tục.');
       setIsLoginModalOpen(true);
-      return;
+      return false;
     }
+    if (!canManageDriverOperations) {
+      alert(`Tính năng "${featureName}" dành cho Admin hoặc Quản lý vận hành. Quản lý ca trực chỉ được xem tài xế đang trong ca.`);
+      return false;
+    }
+    return true;
+  };
+
+  // DRIVER ACTIONS (ADMIN + OPERATIONS MANAGER)
+  const handleOpenNewDriver = () => {
+    if (!requireDriverOperationsManager('Tạo hồ sơ tài xế')) return;
     setDriverToEdit(null);
     setIsDriverModalOpen(true);
   };
 
   const handleEditDriver = (driver: Driver) => {
-    if (!adminUser) {
-      setIsLoginModalOpen(true);
-      return;
-    }
+    if (!requireDriverOperationsManager('Chỉnh sửa hồ sơ tài xế')) return;
     setDriverToEdit(driver);
     setIsDriverModalOpen(true);
   };
 
-  const handleSaveDriver = (savedDriver: Driver) => {
+  const handleSaveDriver = async (savedDriver: Driver) => {
+    if (!requireDriverOperationsManager('Lưu hồ sơ tài xế')) return;
     const isNew = !drivers.some((d) => d.id === savedDriver.id);
 
     setDrivers((prev) => {
@@ -246,7 +408,13 @@ export default function App() {
     });
 
     // Save to Firestore Cloud
-    saveDriverToCloud(savedDriver);
+    const wasSavedToCloud = await saveDriverToCloud(savedDriver);
+    if (!wasSavedToCloud) {
+      setIsCloudSynced(false);
+      alert('Không thể lưu dữ liệu lên Cloud. Dữ liệu hiện chỉ nằm trên máy này; vui lòng kiểm tra kết nối và thử lại.');
+    } else {
+      setIsCloudSynced(true);
+    }
 
     // Write Audit Log
     if (isNew) {
@@ -276,16 +444,17 @@ export default function App() {
     }
   };
 
-  const handleDeleteDriver = (id: string) => {
-    if (!adminUser) {
-      setIsLoginModalOpen(true);
-      return;
-    }
+  const handleDeleteDriver = async (id: string) => {
+    if (!requireDriverOperationsManager('Xóa hồ sơ tài xế')) return;
     const target = drivers.find(d => d.id === id);
     setDrivers((prev) => prev.filter((d) => d.id !== id));
     
     // Delete from Firestore Cloud
-    deleteDriverFromCloud(id);
+    const deletedFromCloud = await deleteDriverFromCloud(id);
+    if (!deletedFromCloud) {
+      setIsCloudSynced(false);
+      alert('Không thể xóa tài xế trên Cloud. Vui lòng thử lại khi có kết nối.');
+    }
 
     // Write Audit Log
     addAuditLog(
@@ -309,10 +478,7 @@ export default function App() {
   };
 
   const handleApproveDriver = (driver: Driver) => {
-    if (!adminUser) {
-      setIsLoginModalOpen(true);
-      return;
-    }
+    if (!requireDriverOperationsManager('Phê duyệt tài xế')) return;
     const approved: Driver = {
       ...driver,
       approvalStatus: 'approved',
@@ -337,6 +503,101 @@ export default function App() {
     }
   };
 
+  const handleDriverLogin = (driver: Driver) => {
+    const sessionDays = Math.min(300, Math.max(1, Math.round(authSettings.driverSessionDays || 7)));
+    const session: DriverSession = {
+      driverId: driver.id,
+      phone: driver.phone,
+      loggedInAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + sessionDays * 24 * 60 * 60 * 1000).toISOString(),
+    };
+    setDriverSession(session);
+    saveStoredDriverSession(session, sessionDays);
+  };
+
+  const handleDriverLogout = () => {
+    setDriverSession(null);
+    clearStoredDriverSession();
+  };
+
+  const handleUpdateDriverLiveStatus = async (status: DriverLiveStatus) => {
+    // Optimistic update keeps the map responsive while Firestore confirms it.
+    setLiveDriverStatuses((previous) => [status, ...previous.filter(item => item.driverId !== status.driverId)]);
+    if (!(await saveDriverLiveStatusToCloud(status))) {
+      throw new Error('Không thể gửi trạng thái trực tuyến lên Cloud.');
+    }
+  };
+
+  const handleStopDriverLocationSharing = async (driverId: string) => {
+    const current = liveDriverStatuses.find(item => item.driverId === driverId);
+    if (!current) return;
+    await handleUpdateDriverLiveStatus({ ...current, isSharingLocation: false, lastSeenAt: new Date().toISOString() });
+  };
+
+  const handleSaveDriverRoutePoint = async (point: DriverRoutePoint) => {
+    if (!(await saveDriverRoutePointToCloud(point))) {
+      throw new Error('Không thể lưu hành trình lên Cloud.');
+    }
+  };
+
+  const handleSaveAttendance = async (data: Omit<DriverAttendance, 'id' | 'updatedAt'>) => {
+    const id = `attendance_${data.date}_${data.driverId}`;
+    const existing = attendanceList.find(item => item.id === id);
+    const attendance: DriverAttendance = {
+      ...existing,
+      ...data,
+      id,
+      checkInTime: data.checkInTime ?? existing?.checkInTime ?? (
+        data.date === getTodayDateString() && (data.status === 'on_duty' || data.status === 'standby')
+          ? new Date().toISOString()
+          : undefined
+      ),
+      updatedAt: new Date().toISOString(),
+    };
+    setAttendanceList(prev => existing ? prev.map(item => item.id === id ? attendance : item) : [attendance, ...prev]);
+    if (!(await saveAttendanceToCloud(attendance))) {
+      alert('Không thể lưu điểm danh lên Cloud. Vui lòng kiểm tra kết nối rồi thử lại.');
+      return;
+    }
+    addAuditLog('DRIVER_UPDATE', 'Cập nhật điểm danh', `${attendance.driverName} cập nhật trạng thái ${attendance.status} ngày ${attendance.date}.`, attendance.driverName, adminUser);
+  };
+
+  const handleSaveAttendanceBatch = async (items: Array<Omit<DriverAttendance, 'id' | 'updatedAt'>>) => {
+    await Promise.all(items.map(item => handleSaveAttendance(item)));
+  };
+
+  const handleUpdateAttendanceStatus = async (attendance: DriverAttendance, status: DriverShiftStatus, note?: string) => {
+    if (!canManageDriverOperations) return;
+    await handleSaveAttendance({
+      ...attendance,
+      status,
+      note: note ?? attendance.note,
+      checkOutTime: status === 'off_duty' || status === 'emergency_leave' ? new Date().toISOString() : attendance.checkOutTime,
+    });
+  };
+
+  const handleAdminCheckInDriver = async (driver: Driver, shift: AttendanceShift, status: DriverShiftStatus, zone?: string, note?: string) => {
+    if (!canManageDriverOperations) return;
+    const date = getTodayDateString();
+    const zones = zone?.split(',').map(value => value.trim()).filter(Boolean) || [];
+    await handleSaveAttendance({
+      driverId: driver.id,
+      driverCode: driver.code,
+      driverName: driver.name,
+      driverPhone: driver.phone,
+      licensePlate: driver.licensePlate,
+      workingType: driver.workingType || 'fulltime',
+      date,
+      shift,
+      status,
+      checkInTime: new Date().toISOString(),
+      checkOutTime: status === 'off_duty' ? new Date().toISOString() : undefined,
+      standbyZone: zones[0],
+      standbyZones: zones,
+      note,
+    });
+  };
+
   // EXPENSE ACTIONS (SUPER ADMIN ONLY)
   const handleOpenNewExpense = () => {
     if (!requireSuperAdmin('Ghi nhận khoản chi tiêu nội bộ')) return;
@@ -350,7 +611,7 @@ export default function App() {
     setIsExpenseModalOpen(true);
   };
 
-  const handleSaveExpense = (savedExpense: ExpenseItem) => {
+  const handleSaveExpense = async (savedExpense: ExpenseItem) => {
     const isNew = !expenses.some((e) => e.id === savedExpense.id);
 
     setExpenses((prev) => {
@@ -361,7 +622,13 @@ export default function App() {
     });
 
     // Save to Firestore Cloud
-    saveExpenseToCloud(savedExpense);
+    const wasSavedToCloud = await saveExpenseToCloud(savedExpense);
+    if (!wasSavedToCloud) {
+      setIsCloudSynced(false);
+      alert('Không thể lưu khoản chi lên Cloud. Dữ liệu hiện chỉ nằm trên máy này; vui lòng kiểm tra kết nối và thử lại.');
+    } else {
+      setIsCloudSynced(true);
+    }
 
     // Write Audit Log
     if (isNew) {
@@ -387,13 +654,17 @@ export default function App() {
     setExpenseToEdit(null);
   };
 
-  const handleDeleteExpense = (id: string) => {
+  const handleDeleteExpense = async (id: string) => {
     if (!requireSuperAdmin('Xóa khoản chi tiêu')) return;
     const target = expenses.find(e => e.id === id);
     setExpenses((prev) => prev.filter((e) => e.id !== id));
 
     // Delete from Firestore Cloud
-    deleteExpenseFromCloud(id);
+    const deletedFromCloud = await deleteExpenseFromCloud(id);
+    if (!deletedFromCloud) {
+      setIsCloudSynced(false);
+      alert('Không thể xóa khoản chi trên Cloud. Vui lòng thử lại khi có kết nối.');
+    }
 
     // Write Audit Log
     addAuditLog(
@@ -427,131 +698,6 @@ export default function App() {
   const handleOpenBackupModal = () => {
     if (!requireSuperAdmin('Sao lưu & Khôi phục dữ liệu')) return;
     setIsBackupModalOpen(true);
-  };
-
-  // ATTENDANCE & DISPATCH ACTIONS
-  const handleDriverLogin = (driver: Driver) => {
-    const newSession: DriverSession = {
-      driverId: driver.id,
-      driverCode: driver.code,
-      driverName: driver.name,
-      phone: driver.phone,
-      workingType: driver.workingType || 'fulltime',
-      loginAt: new Date().toISOString(),
-    };
-    setDriverSession(newSession);
-    saveStoredDriverSession(newSession);
-  };
-
-  const handleDriverLogout = () => {
-    setDriverSession(null);
-    saveStoredDriverSession(null);
-  };
-
-  const handleSubmitAttendance = (attendanceData: Omit<DriverAttendance, 'id' | 'updatedAt'>) => {
-    const existingIndex = attendanceList.findIndex(
-      (a) => a.driverId === attendanceData.driverId && a.date === attendanceData.date && a.shift === attendanceData.shift
-    );
-
-    let updatedRecord: DriverAttendance;
-    const now = new Date().toISOString();
-
-    if (existingIndex >= 0) {
-      updatedRecord = {
-        ...attendanceList[existingIndex],
-        ...attendanceData,
-        updatedAt: now,
-      };
-      setAttendanceList((prev) => prev.map((item, idx) => (idx === existingIndex ? updatedRecord : item)));
-    } else {
-      updatedRecord = {
-        ...attendanceData,
-        id: `att_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        updatedAt: now,
-      };
-      setAttendanceList((prev) => [updatedRecord, ...prev]);
-    }
-
-    // Save to Firestore Cloud
-    saveAttendanceToCloud(updatedRecord);
-
-    // Audit log
-    addAuditLog(
-      'ATTENDANCE_UPDATE',
-      'Điểm danh ca trực',
-      `Tài xế ${updatedRecord.driverName} (${updatedRecord.driverCode}) cập nhật ca: ${updatedRecord.shift}, trạng thái: ${updatedRecord.status}${updatedRecord.standbyZone ? `, Trạm: ${updatedRecord.standbyZone}` : ''}${updatedRecord.note ? `, Ghi chú: ${updatedRecord.note}` : ''}`,
-      `${updatedRecord.driverName} (${updatedRecord.driverCode})`,
-      adminUser
-    );
-    reloadLogs();
-  };
-
-  const handleUpdateAttendanceStatus = (
-    attendance: DriverAttendance, 
-    newStatus: DriverShiftStatus, 
-    note?: string
-  ) => {
-    const now = new Date().toISOString();
-    const updated: DriverAttendance = {
-      ...attendance,
-      status: newStatus,
-      checkOutTime: newStatus === 'off_duty' ? now : attendance.checkOutTime,
-      note: note ? (attendance.note ? `${attendance.note} | ${note}` : note) : attendance.note,
-      updatedAt: now,
-    };
-
-    setAttendanceList((prev) => prev.map((item) => (item.id === attendance.id ? updated : item)));
-    saveAttendanceToCloud(updated);
-
-    addAuditLog(
-      'ATTENDANCE_UPDATE',
-      'Điều phối ca trực',
-      `Điều phối viên cập nhật trạng thái của ${updated.driverName} (${updated.driverCode}) thành "${newStatus}"`,
-      `${updated.driverName} (${updated.driverCode})`,
-      adminUser
-    );
-    reloadLogs();
-  };
-
-  const handleAdminCheckInDriver = (
-    driver: Driver, 
-    shift: AttendanceShift, 
-    status: DriverShiftStatus, 
-    zone?: string, 
-    note?: string
-  ) => {
-    const today = new Date().toISOString().split('T')[0];
-    const now = new Date().toISOString();
-
-    const newAttendance: DriverAttendance = {
-      id: `att_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      driverId: driver.id,
-      driverCode: driver.code,
-      driverName: driver.name,
-      driverPhone: driver.phone,
-      licensePlate: driver.licensePlate,
-      workingType: driver.workingType || 'fulltime',
-      date: today,
-      shift,
-      status,
-      checkInTime: now,
-      checkOutTime: status === 'off_duty' ? now : undefined,
-      standbyZone: zone || 'Quận 1 - Bến Thành',
-      note,
-      updatedAt: now,
-    };
-
-    setAttendanceList((prev) => [newAttendance, ...prev]);
-    saveAttendanceToCloud(newAttendance);
-
-    addAuditLog(
-      'ATTENDANCE_CHECKIN',
-      'Điểm danh hộ tài xế',
-      `Điều phối viên điểm danh cho ${driver.name} (${driver.code}) - Ca: ${shift}, Trạng thái: ${status}, Trạm: ${zone || 'Quận 1'}`,
-      `${driver.name} (${driver.code})`,
-      adminUser
-    );
-    reloadLogs();
   };
 
   // EXPORT CSV
@@ -651,17 +797,177 @@ export default function App() {
     reloadLogs();
   };
 
-  // MANDATORY LOGIN: User MUST log in before viewing admin data!
-  // BUT DRIVERS CAN ACCESS ATTENDANCE PORTAL FROM OUTSIDE!
+  // ==========================================
+  // CATEGORIES & SYSTEM FEE SETTINGS HANDLERS
+  // ==========================================
+  const handleSaveEquipmentCategory = (cat: EquipmentCategory) => {
+    setEquipmentCategories(prev => {
+      const idx = prev.findIndex(c => c.id === cat.id);
+      let updated: EquipmentCategory[];
+      if (idx >= 0) {
+        updated = [...prev];
+        updated[idx] = cat;
+      } else {
+        updated = [...prev, cat];
+      }
+      saveStoredEquipmentCategories(updated);
+      saveEquipmentCategoryToCloud(cat);
+      return updated;
+    });
+
+    addAuditLog(
+      'INVENTORY_UPDATE',
+      'Cập nhật danh mục trang bị',
+      `${adminUser?.displayName || 'Admin'} đã lưu danh mục trang bị: "${cat.name}" (Mã: ${cat.code}, Cọc: ${cat.defaultDeposit.toLocaleString('vi-VN')}đ)`,
+      cat.name,
+      adminUser
+    );
+    reloadLogs();
+  };
+
+  const handleDeleteEquipmentCategory = (id: string) => {
+    const target = equipmentCategories.find(c => c.id === id);
+    setEquipmentCategories(prev => {
+      const updated = prev.filter(c => c.id !== id);
+      saveStoredEquipmentCategories(updated);
+      deleteEquipmentCategoryFromCloud(id);
+      return updated;
+    });
+
+    addAuditLog(
+      'INVENTORY_UPDATE',
+      'Xóa danh mục trang bị',
+      `${adminUser?.displayName || 'Admin'} đã xóa danh mục trang bị: "${target?.name || id}"`,
+      target?.name,
+      adminUser
+    );
+    reloadLogs();
+  };
+
+  const handleSaveExpenseCategory = (cat: ExpenseCategoryConfig) => {
+    setExpenseCategories(prev => {
+      const idx = prev.findIndex(c => c.id === cat.id);
+      let updated: ExpenseCategoryConfig[];
+      if (idx >= 0) {
+        updated = [...prev];
+        updated[idx] = cat;
+      } else {
+        updated = [...prev, cat];
+      }
+      saveStoredExpenseCategories(updated);
+      saveExpenseCategoryToCloud(cat);
+      return updated;
+    });
+
+    addAuditLog(
+      'EXPENSE_UPDATE',
+      'Cập nhật danh mục chi tiêu',
+      `${adminUser?.displayName || 'Admin'} đã lưu danh mục chi: "${cat.name}" (Mã: ${cat.code})`,
+      cat.name,
+      adminUser
+    );
+    reloadLogs();
+  };
+
+  const handleDeleteExpenseCategory = (id: string) => {
+    const target = expenseCategories.find(c => c.id === id);
+    setExpenseCategories(prev => {
+      const updated = prev.filter(c => c.id !== id);
+      saveStoredExpenseCategories(updated);
+      deleteExpenseCategoryFromCloud(id);
+      return updated;
+    });
+
+    addAuditLog(
+      'EXPENSE_DELETE',
+      'Xóa danh mục chi tiêu',
+      `${adminUser?.displayName || 'Admin'} đã xóa danh mục chi: "${target?.name || id}"`,
+      target?.name,
+      adminUser
+    );
+    reloadLogs();
+  };
+
+  const handleSaveFeeSettings = (settings: SystemFeeSettings) => {
+    setSystemFeeSettings(settings);
+    saveStoredFeeSettings(settings);
+    saveFeeSettingsToCloud(settings);
+
+    addAuditLog(
+      'INVENTORY_UPDATE',
+      'Cập nhật chính sách cọc & hoàn trả',
+      `${adminUser?.displayName || 'Admin'} đã cập nhật chính sách cọc mặc định: ${settings.defaultUniformDeposit.toLocaleString('vi-VN')}đ, hoàn trả: ${settings.defaultRefundPercentage}%`,
+      'Chính sách cọc',
+      adminUser
+    );
+    reloadLogs();
+  };
+
+  const handleSaveDriverWorkflow = (settings: DriverWorkflowSettings) => {
+    setDriverWorkflowSettings(settings);
+    saveStoredDriverWorkflowSettings(settings);
+    saveDriverWorkflowToCloud(settings);
+    addAuditLog(
+      'INVENTORY_UPDATE',
+      'Cập nhật danh mục vận hành tài xế',
+      `${adminUser?.displayName || 'Admin'} đã cập nhật các trạng thái quản lý tài xế.`,
+      'Danh mục vận hành tài xế',
+      adminUser
+    );
+    reloadLogs();
+  };
+
+  const handleSaveAttendanceSettings = async (settings: AttendanceSettings) => {
+    const updated = { ...settings, updatedAt: new Date().toISOString() };
+    setAttendanceSettings(updated);
+    saveStoredAttendanceSettings(updated);
+    if (!(await saveAttendanceSettingsToCloud(updated))) {
+      alert('Không thể lưu danh mục ca trực và khu vực lên Cloud. Vui lòng thử lại.');
+      return;
+    }
+    addAuditLog('INVENTORY_UPDATE', 'Cập nhật danh mục điểm danh', 'Đã cập nhật khung giờ ca trực và trạm/khu vực trực.', 'Danh mục điểm danh', adminUser);
+    reloadLogs();
+  };
+
+  const handleResetCategoriesToDefaults = () => {
+    setEquipmentCategories(DEFAULT_EQUIPMENT_CATEGORIES);
+    saveStoredEquipmentCategories(DEFAULT_EQUIPMENT_CATEGORIES);
+    DEFAULT_EQUIPMENT_CATEGORIES.forEach(c => saveEquipmentCategoryToCloud(c));
+
+    setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES);
+    saveStoredExpenseCategories(DEFAULT_EXPENSE_CATEGORIES);
+    DEFAULT_EXPENSE_CATEGORIES.forEach(c => saveExpenseCategoryToCloud(c));
+
+    setSystemFeeSettings(DEFAULT_SYSTEM_FEE_SETTINGS);
+    saveStoredFeeSettings(DEFAULT_SYSTEM_FEE_SETTINGS);
+    saveFeeSettingsToCloud(DEFAULT_SYSTEM_FEE_SETTINGS);
+
+    setDriverWorkflowSettings(DEFAULT_DRIVER_WORKFLOW_SETTINGS);
+    saveStoredDriverWorkflowSettings(DEFAULT_DRIVER_WORKFLOW_SETTINGS);
+    saveDriverWorkflowToCloud(DEFAULT_DRIVER_WORKFLOW_SETTINGS);
+
+    setAttendanceSettings(DEFAULT_ATTENDANCE_SETTINGS);
+    saveStoredAttendanceSettings(DEFAULT_ATTENDANCE_SETTINGS);
+    saveAttendanceSettingsToCloud(DEFAULT_ATTENDANCE_SETTINGS);
+
+    addAuditLog(
+      'BACKUP_RESTORE',
+      'Khôi phục danh mục & chi phí chuẩn',
+      `${adminUser?.displayName || 'Admin'} đã khôi phục toàn bộ danh mục trang bị, danh mục chi tiêu và chính sách cọc về mặc định ban đầu`,
+      'Cấu hình danh mục',
+      adminUser
+    );
+    reloadLogs();
+  };
+
+  // MANDATORY LOGIN
   if (!adminUser) {
     return (
       <>
         <AdminLockScreen
           onLoginSuccess={handleLoginSuccess}
-          onOpenDriverPortal={() => setIsDriverPortalOpen(true)}
+          onOpenDriverCheckin={() => setIsDriverPortalOpen(true)}
         />
-
-        {/* Standalone Driver Portal Modal for external drivers */}
         <DriverPortalModal
           isOpen={isDriverPortalOpen}
           onClose={() => setIsDriverPortalOpen(false)}
@@ -670,15 +976,19 @@ export default function App() {
           onDriverLogin={handleDriverLogin}
           onDriverLogout={handleDriverLogout}
           todayAttendanceList={attendanceList}
-          onSubmitAttendance={handleSubmitAttendance}
+          attendanceSettings={attendanceSettings}
+          onSubmitAttendance={handleSaveAttendanceBatch}
+          liveStatus={liveDriverStatuses.find(item => item.driverId === driverSession?.driverId) || null}
+          onUpdateLiveStatus={handleUpdateDriverLiveStatus}
+          onStopLocationSharing={handleStopDriverLocationSharing}
+          onSaveRoutePoint={handleSaveDriverRoutePoint}
+          liveDriverStatuses={liveDriverStatuses}
         />
       </>
     );
   }
 
   const revokedCount = drivers.filter((d) => d.isRevoked).length;
-  const isSuperAdmin = adminUser.role === 'super_admin';
-
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased selection:bg-amber-500/20 selection:text-amber-900">
       
@@ -687,7 +997,6 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         driverCount={drivers.length}
-        attendanceOnDutyCount={attendanceList.filter(a => a.date === new Date().toISOString().split('T')[0] && a.status === 'on_duty').length}
         expenseCount={expenses.length}
         revokedCount={revokedCount}
         logCount={logs.length}
@@ -697,7 +1006,6 @@ export default function App() {
         onLockApp={handleLockApp}
         onOpenDriverModal={handleOpenNewDriver}
         onOpenExpenseModal={handleOpenNewExpense}
-        onOpenDriverPortal={() => setIsDriverPortalOpen(true)}
         onExportCSV={handleExportCSV}
         onOpenBackupModal={handleOpenBackupModal}
       />
@@ -718,21 +1026,21 @@ export default function App() {
             </span>
           </div>
           <span className="hidden sm:inline text-slate-400">
-            Dữ liệu trên máy tính, điện thoại, máy khác sẽ luôn giống nhau 100%
+            Dữ liệu trên máy tính, điện thoại, máy khác luôn tự động đồng bộ
           </span>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5 pb-24 sm:pb-10">
+      <main className="mobile-safe-bottom max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5 pb-24 sm:pb-10">
         
-        {/* KPI Dashboard Cards (Only show on Drivers, Expenses, or Summary tab) */}
-        {(activeTab === 'drivers' || activeTab === 'expenses' || activeTab === 'summary') && (
-          <StatsCards drivers={drivers} expenses={expenses} attendanceList={attendanceList} />
+        {/* KPI Dashboard Cards (Only show on Drivers, Inventory, Expenses, or Summary tab) */}
+        {isSuperAdmin && (activeTab === 'drivers' || activeTab === 'attendance' || activeTab === 'inventory' || activeTab === 'expenses' || activeTab === 'summary') && (
+          <StatsCards drivers={drivers} expenses={expenses} />
         )}
 
-        {/* Tab 1: Driver List (Available to both Super Admin and Subordinates) */}
-        {activeTab === 'drivers' && (
+        {/* Tab 1: Driver List (Admin + Operations Manager) */}
+        {activeTab === 'drivers' && canManageDriverOperations && (
           <DriverList
             drivers={drivers}
             onEditDriver={handleEditDriver}
@@ -740,21 +1048,35 @@ export default function App() {
             onViewDriver={handleViewDriver}
             onAddNewDriver={handleOpenNewDriver}
             onApproveDriver={handleApproveDriver}
+            driverWorkflowSettings={driverWorkflowSettings}
           />
         )}
 
-        {/* Tab: Dispatch and Realtime Attendance (Available to both Super Admin and Subordinates) */}
-        {activeTab === 'dispatch' && (
+        {activeTab === 'attendance' && (
           <DispatchDashboard
             drivers={drivers}
             attendanceList={attendanceList}
+            attendanceSettings={attendanceSettings}
+            liveDriverStatuses={liveDriverStatuses}
             onOpenDriverPortal={() => setIsDriverPortalOpen(true)}
             onUpdateAttendanceStatus={handleUpdateAttendanceStatus}
             onAdminCheckInDriver={handleAdminCheckInDriver}
+            readOnly={!canManageDriverOperations}
           />
         )}
 
-        {/* Tab 2: Internal Expenses & Bill Receipts (Super Admin Only) */}
+        {/* Tab 2: Uniform Stock & Size Breakdown (Admin + Operations Manager) */}
+        {activeTab === 'inventory' && canManageDriverOperations && (
+          <UniformInventoryView
+            drivers={drivers}
+            expenses={expenses}
+            onSelectDriver={handleViewDriver}
+            onOpenNewExpense={isSuperAdmin ? handleOpenNewExpense : undefined}
+            onOpenNewDriver={handleOpenNewDriver}
+          />
+        )}
+
+        {/* Tab 3: Internal Expenses & Bill Receipts (Super Admin Only) */}
         {activeTab === 'expenses' && isSuperAdmin && (
           <ExpenseList
             expenses={expenses}
@@ -765,7 +1087,7 @@ export default function App() {
           />
         )}
 
-        {/* Tab 3: Summary & Cash Flow Insights (Super Admin Only) */}
+        {/* Tab 4: Summary & Cash Flow Insights (Super Admin Only) */}
         {activeTab === 'summary' && isSuperAdmin && (
           <SummaryDashboard
             drivers={drivers}
@@ -777,7 +1099,7 @@ export default function App() {
           />
         )}
 
-        {/* Tab 4: Audit Logs (Super Admin Only) */}
+        {/* Tab 5: Audit Logs (Super Admin Only) */}
         {activeTab === 'logs' && isSuperAdmin && (
           <AuditLogView
             logs={logs}
@@ -786,7 +1108,7 @@ export default function App() {
           />
         )}
 
-        {/* Tab 5: Subordinate Accounts & Role Management (Super Admin Only) */}
+        {/* Tab 6: Subordinate Accounts & Role Management (Super Admin Only) */}
         {activeTab === 'users' && isSuperAdmin && (
           <UserManagementView
             currentUser={adminUser}
@@ -796,11 +1118,37 @@ export default function App() {
             }}
           />
         )}
+
+        {/* Tab 7: Category & Fee Custom Management (Super Admin Only) */}
+        {activeTab === 'settings' && isSuperAdmin && (
+          <div className="space-y-6">
+          <DriverWorkflowManagementView
+            settings={driverWorkflowSettings}
+            onSave={handleSaveDriverWorkflow}
+          />
+          <AttendanceSettingsManagementView
+            settings={attendanceSettings}
+            onSave={handleSaveAttendanceSettings}
+          />
+          <CategoryManagementView
+            equipmentCategories={equipmentCategories}
+            expenseCategories={expenseCategories}
+            systemFeeSettings={systemFeeSettings}
+            adminUser={adminUser}
+            onSaveEquipmentCategory={handleSaveEquipmentCategory}
+            onDeleteEquipmentCategory={handleDeleteEquipmentCategory}
+            onSaveExpenseCategory={handleSaveExpenseCategory}
+            onDeleteExpenseCategory={handleDeleteExpenseCategory}
+            onSaveFeeSettings={handleSaveFeeSettings}
+            onResetToDefaults={handleResetCategoriesToDefaults}
+          />
+          </div>
+        )}
       </main>
 
       {/* Mobile Floating Action Button (FAB) */}
       <div className="md:hidden fixed bottom-[70px] right-4 z-30">
-        {activeTab === 'drivers' && (
+        {activeTab === 'drivers' && canManageDriverOperations && (
           <button
             onClick={handleOpenNewDriver}
             className="h-13 w-13 rounded-2xl bg-amber-500 text-slate-950 shadow-2xl flex items-center justify-center font-bold active:scale-90 transition border-2 border-slate-950"
@@ -838,7 +1186,7 @@ export default function App() {
           onClose={() => setIsProfileModalOpen(false)}
           adminUser={adminUser}
           authSettings={authSettings}
-          onUpdateAuthSettings={setAuthSettings}
+          onUpdateAuthSettings={handleUpdateAuthSettings}
           onLogout={handleLogout}
           onUpdateAdminUser={setAdminUser}
         />
@@ -854,6 +1202,26 @@ export default function App() {
         onSave={handleSaveDriver}
         driverToEdit={driverToEdit}
         existingDriverCodes={drivers.map((d) => d.code)}
+        equipmentCategories={equipmentCategories}
+        systemFeeSettings={systemFeeSettings}
+        driverWorkflowSettings={driverWorkflowSettings}
+      />
+
+      <DriverPortalModal
+        isOpen={isDriverPortalOpen}
+        onClose={() => setIsDriverPortalOpen(false)}
+        drivers={drivers}
+        currentDriverSession={driverSession}
+        onDriverLogin={handleDriverLogin}
+        onDriverLogout={handleDriverLogout}
+        todayAttendanceList={attendanceList}
+        attendanceSettings={attendanceSettings}
+        onSubmitAttendance={handleSaveAttendanceBatch}
+        liveStatus={liveDriverStatuses.find(item => item.driverId === driverSession?.driverId) || null}
+        onUpdateLiveStatus={handleUpdateDriverLiveStatus}
+        onStopLocationSharing={handleStopDriverLocationSharing}
+        onSaveRoutePoint={handleSaveDriverRoutePoint}
+        liveDriverStatuses={liveDriverStatuses}
       />
 
       <DriverDetailModal
@@ -878,6 +1246,7 @@ export default function App() {
         }}
         onSave={handleSaveExpense}
         expenseToEdit={expenseToEdit}
+        expenseCategories={expenseCategories}
       />
 
       {/* Image Preview Modal */}
@@ -894,18 +1263,6 @@ export default function App() {
         drivers={drivers}
         expenses={expenses}
         onRestoreData={handleRestoreData}
-      />
-
-      {/* Driver Portal Attendance Modal */}
-      <DriverPortalModal
-        isOpen={isDriverPortalOpen}
-        onClose={() => setIsDriverPortalOpen(false)}
-        drivers={drivers}
-        currentDriverSession={driverSession}
-        onDriverLogin={handleDriverLogin}
-        onDriverLogout={handleDriverLogout}
-        todayAttendanceList={attendanceList}
-        onSubmitAttendance={handleSubmitAttendance}
       />
 
     </div>

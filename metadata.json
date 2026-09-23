@@ -1,6 +1,6 @@
 {
   "name": "Quản Lý Đồng Phục Tài Xế",
-  "description": "Hệ thống quản lý cấp phát đồng phục, quản lý tài xế Fulltime/Part-time & danh sách chờ duyệt, điểm danh ca trực theo thời gian thực và điều phối tài xế trên nền tảng Cloud Firestore.",
+  "description": "Hệ thống quản lý cấp phát đồng phục mũ và áo theo size (S/M/L/XL/XXL/3XL), thu cọc, hoàn tiền vi phạm, kiểm kê tồn kho và sổ chi tiêu nội bộ trên nền tảng Cloud Firestore.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

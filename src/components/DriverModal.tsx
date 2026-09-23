@@ -4,6 +4,8 @@ import {
   User, 
   HardHat, 
   Shirt, 
+  Package,
+  Boxes,
   DollarSign, 
   ShieldAlert, 
   Save, 
@@ -18,7 +20,20 @@ import {
   Copy,
   Check
 } from 'lucide-react';
-import { Driver, ShirtSize, PaymentStatus, RevokeReason, RefundStatus, DriverWorkingType, DriverApprovalStatus } from '../types';
+import { 
+  Driver, 
+  ShirtSize, 
+  PaymentStatus, 
+  RevokeReason, 
+  RefundStatus, 
+  DriverWorkingType, 
+  DriverApprovalStatus,
+  EquipmentCategory,
+  SystemFeeSettings,
+  DriverWorkflowSettings,
+  DriverWorkflowCategory,
+  CustomIssuedItem
+} from '../types';
 import { getTodayDateString, formatCurrency } from '../utils/formatters';
 import { CurrencyInput } from './CurrencyInput';
 
@@ -28,6 +43,9 @@ interface DriverModalProps {
   onSave: (driver: Driver) => void;
   driverToEdit: Driver | null;
   existingDriverCodes: string[];
+  equipmentCategories?: EquipmentCategory[];
+  systemFeeSettings?: SystemFeeSettings;
+  driverWorkflowSettings?: DriverWorkflowSettings;
 }
 
 export const DriverModal: React.FC<DriverModalProps> = ({
@@ -36,6 +54,9 @@ export const DriverModal: React.FC<DriverModalProps> = ({
   onSave,
   driverToEdit,
   existingDriverCodes,
+  equipmentCategories = [],
+  systemFeeSettings,
+  driverWorkflowSettings,
 }) => {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
@@ -60,12 +81,21 @@ export const DriverModal: React.FC<DriverModalProps> = ({
   const [shirtSize, setShirtSize] = useState<ShirtSize>('L');
   const [shirtQuantity, setShirtQuantity] = useState(2);
   const [shirtDate, setShirtDate] = useState(getTodayDateString());
+
+  // Thùng đựng hàng / Thùng giao hàng
+  const [hasDeliveryBox, setHasDeliveryBox] = useState(true);
+  const [boxQuantity, setBoxQuantity] = useState(1);
+  const [boxDate, setBoxDate] = useState(getTodayDateString());
+
+  // Dynamic Custom Items from Admin Categories
+  const [customItems, setCustomItems] = useState<Record<string, CustomIssuedItem>>({});
   const [otherItems, setOtherItems] = useState('');
 
   // Thu tiền
+  const defaultFee = systemFeeSettings?.defaultUniformDeposit ?? 300000;
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid');
-  const [uniformFeeRequired, setUniformFeeRequired] = useState(400000);
-  const [uniformFeePaid, setUniformFeePaid] = useState(400000);
+  const [uniformFeeRequired, setUniformFeeRequired] = useState(defaultFee);
+  const [uniformFeePaid, setUniformFeePaid] = useState(defaultFee);
   const [paymentDate, setPaymentDate] = useState(getTodayDateString());
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('transfer');
   const [paymentNote, setPaymentNote] = useState('');
@@ -77,6 +107,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
   const [revocationReasonDetail, setRevocationReasonDetail] = useState('');
   const [revokedHelmet, setRevokedHelmet] = useState(false);
   const [revokedShirt, setRevokedShirt] = useState(false);
+  const [revokedBox, setRevokedBox] = useState(false);
 
   // Hoàn tiền
   const [refundStatus, setRefundStatus] = useState<RefundStatus>('no_refund');
@@ -84,8 +115,35 @@ export const DriverModal: React.FC<DriverModalProps> = ({
   const [refundDate, setRefundDate] = useState(getTodayDateString());
   const [refundNote, setRefundNote] = useState('');
 
+  const activeOptions = (key: DriverWorkflowCategory) =>
+    (driverWorkflowSettings?.[key] || []).filter((item) => item.isActive).sort((a, b) => a.order - b.order);
+
   const [generalNote, setGeneralNote] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Auto calculate total deposit based on chosen items
+  const calculateTotalDeposit = () => {
+    let sum = 0;
+    if (equipmentCategories && equipmentCategories.length > 0) {
+      for (const cat of equipmentCategories) {
+        if (!cat.isActive) continue;
+        if (cat.id === 'shirt' && hasShirt) {
+          sum += (cat.defaultDeposit || 100000);
+        } else if (cat.id === 'helmet' && hasHelmet) {
+          sum += (cat.defaultDeposit || 100000);
+        } else if (cat.id === 'box' && hasDeliveryBox) {
+          sum += (cat.defaultDeposit || 100000);
+        } else if (customItems[cat.id]?.issued) {
+          sum += (cat.defaultDeposit || 0);
+        }
+      }
+    } else {
+      if (hasHelmet) sum += 100000;
+      if (hasShirt) sum += 100000;
+      if (hasDeliveryBox) sum += 100000;
+    }
+    return sum > 0 ? sum : defaultFee;
+  };
 
   useEffect(() => {
     if (driverToEdit) {
@@ -104,6 +162,12 @@ export const DriverModal: React.FC<DriverModalProps> = ({
       setShirtSize(driverToEdit.shirtSize || 'L');
       setShirtQuantity(driverToEdit.shirtQuantity || 1);
       setShirtDate(driverToEdit.shirtDate || getTodayDateString());
+
+      setHasDeliveryBox(driverToEdit.hasDeliveryBox !== undefined ? driverToEdit.hasDeliveryBox : true);
+      setBoxQuantity(driverToEdit.boxQuantity || 1);
+      setBoxDate(driverToEdit.boxDate || getTodayDateString());
+
+      setCustomItems(driverToEdit.customItems || {});
       setOtherItems(driverToEdit.otherItems || '');
 
       setWorkingType(driverToEdit.workingType || 'fulltime');
@@ -111,8 +175,8 @@ export const DriverModal: React.FC<DriverModalProps> = ({
       setRejectionReason(driverToEdit.rejectionReason || '');
 
       setPaymentStatus(driverToEdit.paymentStatus);
-      setUniformFeeRequired(driverToEdit.uniformFeeRequired || 400000);
-      setUniformFeePaid(driverToEdit.uniformFeePaid || 0);
+      setUniformFeeRequired(driverToEdit.uniformFeeRequired !== undefined ? driverToEdit.uniformFeeRequired : defaultFee);
+      setUniformFeePaid(driverToEdit.uniformFeePaid !== undefined ? driverToEdit.uniformFeePaid : 0);
       setPaymentDate(driverToEdit.paymentDate || getTodayDateString());
       setPaymentMethod(driverToEdit.paymentMethod || 'transfer');
       setPaymentNote(driverToEdit.paymentNote || '');
@@ -123,6 +187,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
       setRevocationReasonDetail(driverToEdit.revocationReasonDetail || '');
       setRevokedHelmet(driverToEdit.revokedHelmet || false);
       setRevokedShirt(driverToEdit.revokedShirt || false);
+      setRevokedBox(driverToEdit.revokedBox || false);
 
       setRefundStatus(driverToEdit.refundStatus || 'no_refund');
       setRefundAmount(driverToEdit.refundAmount || 0);
@@ -149,15 +214,22 @@ export const DriverModal: React.FC<DriverModalProps> = ({
       setShirtSize('L');
       setShirtQuantity(2);
       setShirtDate(getTodayDateString());
+
+      setHasDeliveryBox(true);
+      setBoxQuantity(1);
+      setBoxDate(getTodayDateString());
+
+      setCustomItems({});
       setOtherItems('');
 
       setWorkingType('fulltime');
       setApprovalStatus('approved');
       setRejectionReason('');
 
+      const initialFee = systemFeeSettings?.defaultUniformDeposit || 300000;
       setPaymentStatus('paid');
-      setUniformFeeRequired(400000);
-      setUniformFeePaid(400000);
+      setUniformFeeRequired(initialFee);
+      setUniformFeePaid(initialFee);
       setPaymentDate(getTodayDateString());
       setPaymentMethod('transfer');
       setPaymentNote('');
@@ -168,6 +240,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
       setRevocationReasonDetail('');
       setRevokedHelmet(false);
       setRevokedShirt(false);
+      setRevokedBox(false);
 
       setRefundStatus('no_refund');
       setRefundAmount(0);
@@ -177,7 +250,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
       setGeneralNote('');
       setErrorMsg('');
     }
-  }, [driverToEdit, isOpen, existingDriverCodes]);
+  }, [driverToEdit, isOpen, existingDriverCodes.length, defaultFee]);
 
   if (!isOpen) return null;
 
@@ -224,7 +297,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
 
       workingType,
       approvalStatus,
-      rejectionReason: approvalStatus === 'pending' ? rejectionReason.trim() : undefined,
+      rejectionReason: approvalStatus !== 'approved' ? rejectionReason.trim() : undefined,
 
       hasHelmet,
       helmetQuantity: Number(helmetQuantity) || 0,
@@ -234,6 +307,12 @@ export const DriverModal: React.FC<DriverModalProps> = ({
       shirtSize,
       shirtQuantity: Number(shirtQuantity) || 0,
       shirtDate: hasShirt ? shirtDate : undefined,
+
+      hasDeliveryBox,
+      boxQuantity: Number(boxQuantity) || 0,
+      boxDate: hasDeliveryBox ? boxDate : undefined,
+
+      customItems,
       otherItems: otherItems.trim(),
 
       paymentStatus,
@@ -249,6 +328,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
       revocationReasonDetail: isRevoked ? revocationReasonDetail.trim() : undefined,
       revokedHelmet: isRevoked ? revokedHelmet : false,
       revokedShirt: isRevoked ? revokedShirt : false,
+      revokedBox: isRevoked ? revokedBox : false,
 
       refundStatus: isRevoked ? refundStatus : 'no_refund',
       refundAmount: isRevoked ? Number(refundAmount) || 0 : 0,
@@ -263,14 +343,14 @@ export const DriverModal: React.FC<DriverModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
+    <div className="mobile-modal-frame fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
       <div 
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="mobile-sheet bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         
         {/* Header Modal */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
               <User className="w-5 h-5" />
@@ -293,7 +373,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
         </div>
 
         {/* Body Form (Scrollable) */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs sm:text-sm">
+        <form onSubmit={handleSubmit} className="mobile-safe-bottom flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 sm:space-y-6 text-xs sm:text-sm">
           
           {errorMsg && (
             <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 flex items-center text-xs">
@@ -376,37 +456,13 @@ export const DriverModal: React.FC<DriverModalProps> = ({
                 />
               </div>
 
-              {/* Hình thức làm việc: Full-time / Part-time */}
               <div>
                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                   Hình thức làm việc <span className="text-rose-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setWorkingType('fulltime')}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition ${
-                      workingType === 'fulltime'
-                        ? 'bg-blue-500 text-white border-blue-600 shadow-xs'
-                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    <Briefcase className="w-3.5 h-3.5" />
-                    Full-time
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setWorkingType('parttime')}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition ${
-                      workingType === 'parttime'
-                        ? 'bg-purple-500 text-white border-purple-600 shadow-xs'
-                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    <Clock className="w-3.5 h-3.5" />
-                    Part-time
-                  </button>
-                </div>
+                <select value={workingType} onChange={(e) => setWorkingType(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs font-semibold">
+                  {activeOptions('workingTypes').map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
               </div>
 
               {/* Mã bí mật điểm danh riêng cho tài xế */}
@@ -460,56 +516,15 @@ export const DriverModal: React.FC<DriverModalProps> = ({
                 </div>
               </div>
 
-              {/* Trạng thái xét duyệt / Danh sách chờ dự bị */}
               <div className="sm:col-span-2 md:col-span-3 pt-1">
                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
                   Trạng thái hồ sơ & Xét duyệt
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div
-                    onClick={() => setApprovalStatus('approved')}
-                    className={`p-2.5 rounded-xl border cursor-pointer transition flex items-center space-x-3 ${
-                      approvalStatus === 'approved'
-                        ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 shadow-xs'
-                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-100/60 dark:hover:bg-slate-750'
-                    }`}
-                  >
-                    <div className={`p-1.5 rounded-lg ${approvalStatus === 'approved' ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
-                      <CheckCircle2 className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-xs text-slate-900 dark:text-slate-100">
-                        Đã duyệt chính thức
-                      </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Tài xế đủ điều kiện chạy và nhận trang bị
-                      </div>
-                    </div>
-                  </div>
+                <select value={approvalStatus} onChange={(e) => setApprovalStatus(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs font-semibold">
+                  {activeOptions('approvalStatuses').map(item => <option key={item.id} value={item.id}>{item.name}{item.description ? ` — ${item.description}` : ''}</option>)}
+                </select>
 
-                  <div
-                    onClick={() => setApprovalStatus('pending')}
-                    className={`p-2.5 rounded-xl border cursor-pointer transition flex items-center space-x-3 ${
-                      approvalStatus === 'pending'
-                        ? 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 shadow-xs'
-                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-100/60 dark:hover:bg-slate-750'
-                    }`}
-                  >
-                    <div className={`p-1.5 rounded-lg ${approvalStatus === 'pending' ? 'bg-amber-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
-                      <Hourglass className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-xs text-amber-700 dark:text-amber-300">
-                        Danh sách chờ / Dự bị chưa duyệt
-                      </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Tài xế đăng ký dự bị, đang chờ kiểm tra hoặc phỏng vấn
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {approvalStatus === 'pending' && (
+                {approvalStatus !== 'approved' && (
                   <div className="mt-2">
                     <input
                       type="text"
@@ -524,11 +539,11 @@ export const DriverModal: React.FC<DriverModalProps> = ({
             </div>
           </div>
 
-          {/* Phần 2: Cấp phát Đồng Phục (Mũ & Áo) */}
+          {/* Phần 2: Cấp phát Trang bị (Áo, Mũ & Thùng đựng hàng) */}
           <div className="bg-slate-50 dark:bg-slate-800/40 rounded-xl p-4 border border-slate-200 dark:border-slate-800/80">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3 flex items-center">
-              <Shirt className="w-4 h-4 mr-1.5 text-indigo-500" />
-              2. Tình trạng cấp phát đồng phục
+              <Boxes className="w-4 h-4 mr-1.5 text-amber-500" />
+              2. Tình trạng cấp phát trang bị (Áo, Mũ & Thùng đựng hàng)
             </h3>
 
             {/* Mũ bảo hiểm */}
@@ -646,6 +661,173 @@ export const DriverModal: React.FC<DriverModalProps> = ({
               )}
             </div>
 
+            {/* Thùng đựng hàng / Thùng giao hàng */}
+            <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 mb-3">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hasDeliveryBox}
+                    onChange={(e) => setHasDeliveryBox(e.target.checked)}
+                    className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400"
+                  />
+                  <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 flex items-center">
+                    <Package className="w-3.5 h-3.5 mr-1 text-amber-500" />
+                    Đã cấp Thùng đựng hàng / Thùng giao hàng
+                  </span>
+                </label>
+                <span className={`text-[11px] px-2 py-0.5 rounded font-medium ${hasDeliveryBox ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800' : 'bg-slate-100 text-slate-500'}`}>
+                  {hasDeliveryBox ? `Đã có thùng (${boxQuantity} cái)` : 'Chưa có thùng'}
+                </span>
+              </div>
+
+              {hasDeliveryBox && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700 text-xs">
+                  <div>
+                    <label className="block text-slate-500 dark:text-slate-400 mb-1 text-[11px]">
+                      Số lượng thùng
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={boxQuantity}
+                      onChange={(e) => setBoxQuantity(Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 rounded bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-xs font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-500 dark:text-slate-400 mb-1 text-[11px]">
+                      Ngày nhận thùng
+                    </label>
+                    <input
+                      type="date"
+                      value={boxDate}
+                      onChange={(e) => setBoxDate(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-xs"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Trang bị mở rộng từ Quản trị danh mục (nếu có) */}
+            {equipmentCategories && equipmentCategories.filter(c => !['shirt', 'helmet', 'box'].includes(c.id) && c.isActive).map((cat) => {
+              const itemState = customItems[cat.id] || {
+                itemId: cat.id,
+                name: cat.name,
+                issued: false,
+                quantity: 1,
+                date: getTodayDateString(),
+                size: cat.availableSizes?.[0] || '',
+              };
+
+              const handleToggle = (checked: boolean) => {
+                setCustomItems(prev => ({
+                  ...prev,
+                  [cat.id]: {
+                    ...itemState,
+                    issued: checked,
+                  }
+                }));
+              };
+
+              const handleQtyChange = (qty: number) => {
+                setCustomItems(prev => ({
+                  ...prev,
+                  [cat.id]: {
+                    ...itemState,
+                    quantity: qty,
+                  }
+                }));
+              };
+
+              const handleDateChange = (date: string) => {
+                setCustomItems(prev => ({
+                  ...prev,
+                  [cat.id]: {
+                    ...itemState,
+                    date,
+                  }
+                }));
+              };
+
+              const handleSizeChange = (size: string) => {
+                setCustomItems(prev => ({
+                  ...prev,
+                  [cat.id]: {
+                    ...itemState,
+                    size,
+                  }
+                }));
+              };
+
+              return (
+                <div key={cat.id} className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 mb-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={itemState.issued}
+                        onChange={(e) => handleToggle(e.target.checked)}
+                        className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400"
+                      />
+                      <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 flex items-center">
+                        <Package className="w-3.5 h-3.5 mr-1 text-amber-500" />
+                        Đã cấp {cat.name} {cat.defaultDeposit ? `(Cọc: ${formatCurrency(cat.defaultDeposit)})` : ''}
+                      </span>
+                    </label>
+                    <span className={`text-[11px] px-2 py-0.5 rounded font-medium ${itemState.issued ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-slate-100 text-slate-500'}`}>
+                      {itemState.issued ? `Đã cấp (${itemState.quantity || 1} cái)` : 'Chưa cấp'}
+                    </span>
+                  </div>
+
+                  {itemState.issued && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700 text-xs">
+                      {cat.hasSize && cat.availableSizes && cat.availableSizes.length > 0 && (
+                        <div>
+                          <label className="block text-slate-500 dark:text-slate-400 mb-1 text-[11px]">
+                            Kích thước / Size
+                          </label>
+                          <select
+                            value={itemState.size || cat.availableSizes[0]}
+                            onChange={(e) => handleSizeChange(e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-xs"
+                          >
+                            {cat.availableSizes.map((s: string) => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-slate-500 dark:text-slate-400 mb-1 text-[11px]">
+                          Số lượng
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={itemState.quantity || 1}
+                          onChange={(e) => handleQtyChange(Number(e.target.value))}
+                          className="w-full px-2.5 py-1.5 rounded bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-xs font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-500 dark:text-slate-400 mb-1 text-[11px]">
+                          Ngày cấp
+                        </label>
+                        <input
+                          type="date"
+                          value={itemState.date || getTodayDateString()}
+                          onChange={(e) => handleDateChange(e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-xs"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
             {/* Phụ kiện khác */}
             <div>
               <label className="block text-slate-600 dark:text-slate-400 mb-1 text-xs">
@@ -663,10 +845,27 @@ export const DriverModal: React.FC<DriverModalProps> = ({
 
           {/* Phần 3: Thu tiền đồng phục / Tiền cọc */}
           <div className="bg-slate-50 dark:bg-slate-800/40 rounded-xl p-4 border border-slate-200 dark:border-slate-800/80">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3 flex items-center">
-              <DollarSign className="w-4 h-4 mr-1.5 text-emerald-500" />
-              3. Quản lý thu tiền đồng phục / Cọc
-            </h3>
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center">
+                <DollarSign className="w-4 h-4 mr-1.5 text-emerald-500" />
+                3. Quản lý thu tiền đồng phục / Cọc
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  const autoDeposit = calculateTotalDeposit();
+                  setUniformFeeRequired(autoDeposit);
+                  if (paymentStatus === 'paid') {
+                    setUniformFeePaid(autoDeposit);
+                  }
+                }}
+                className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition flex items-center gap-1"
+                title="Tính lại mức tiền cọc theo các trang bị đã tick ở trên"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Tính cọc theo trang bị ({formatCurrency(calculateTotalDeposit())})
+              </button>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
               <div>
@@ -678,9 +877,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
                   onChange={(e) => handlePaymentStatusChange(e.target.value as PaymentStatus)}
                   className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs font-semibold focus:ring-2 focus:ring-emerald-500 outline-none"
                 >
-                  <option value="paid">Đã thu đủ 100%</option>
-                  <option value="partial">Thu một phần (Còn nợ)</option>
-                  <option value="unpaid">Chưa thu tiền</option>
+                  {activeOptions('paymentStatuses').map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
               </div>
 
@@ -692,7 +889,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
                   id="driver-fee-required"
                   value={uniformFeeRequired}
                   onChange={setUniformFeeRequired}
-                  presets={[300000, 350000, 400000, 500000]}
+                  presets={[200000, 250000, 300000, 350000, 400000]}
                 />
               </div>
 
@@ -704,7 +901,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
                   id="driver-fee-paid"
                   value={uniformFeePaid}
                   onChange={setUniformFeePaid}
-                  presets={[0, 200000, 350000, 400000]}
+                  presets={[0, 150000, 200000, 300000]}
                   className="text-emerald-600 dark:text-emerald-400 font-bold"
                 />
               </div>
@@ -802,10 +999,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
                       onChange={(e) => setRevocationReason(e.target.value as RevokeReason)}
                       className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs font-semibold"
                     >
-                      <option value="violation">Vi phạm quy chế công ty / Kỷ luật</option>
-                      <option value="resigned">Tài xế nghỉ việc / Bàn giao đồ</option>
-                      <option value="damaged">Đồng phục hư hỏng cần đổi</option>
-                      <option value="other">Lý do khác</option>
+                      {activeOptions('revocationReasons').map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
                     </select>
                   </div>
 
@@ -859,6 +1053,15 @@ export const DriverModal: React.FC<DriverModalProps> = ({
                       />
                       <span>Đã nhận lại Áo đồng phục</span>
                     </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={revokedBox}
+                        onChange={(e) => setRevokedBox(e.target.checked)}
+                        className="w-4 h-4 rounded text-emerald-600"
+                      />
+                      <span>Đã nhận lại Thùng đựng hàng</span>
+                    </label>
                   </div>
                 </div>
 
@@ -883,9 +1086,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
                         onChange={(e) => setRefundStatus(e.target.value as RefundStatus)}
                         className="w-full px-2.5 py-1.5 rounded bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 font-semibold text-xs"
                       >
-                        <option value="refunded">Đã hoàn tiền cho tài xế</option>
-                        <option value="pending">Chờ hoàn (Khi trả đủ đồ)</option>
-                        <option value="no_refund">Không hoàn tiền (Phạt vi phạm)</option>
+                        {activeOptions('refundStatuses').map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
                       </select>
                     </div>
 
@@ -950,7 +1151,7 @@ export const DriverModal: React.FC<DriverModalProps> = ({
           </div>
 
           {/* Footer actions */}
-          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end space-x-3">
+          <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-3 pb-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 flex items-center justify-end space-x-3">
             <button
               type="button"
               onClick={onClose}

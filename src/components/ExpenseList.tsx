@@ -31,6 +31,7 @@ type ViewMode = 'cards' | 'table';
 const CATEGORY_NAMES: Record<ExpenseItem['category'], { label: string; color: string }> = {
   buy_uniform: { label: 'Áo đồng phục', color: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' },
   buy_helmet: { label: 'Mũ bảo hiểm', color: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800' },
+  buy_delivery_box: { label: 'Thùng đựng hàng', color: 'bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border-amber-300 dark:border-amber-700' },
   print_logo: { label: 'In ấn logo', color: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800' },
   refund_driver: { label: 'Hoàn tiền tài xế', color: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200 dark:border-rose-800' },
   warehouse_shipping: { label: 'Kho bãi / Ship', color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700' },
@@ -131,7 +132,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               </button>
               <button
                 onClick={() => setViewMode('table')}
-                className={`p-1.5 rounded-lg text-xs flex items-center transition ${
+                className={`hidden sm:flex p-1.5 rounded-lg text-xs items-center transition ${
                   viewMode === 'table'
                     ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs font-semibold'
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'

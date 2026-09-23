@@ -11,36 +11,30 @@ import {
   ArrowUpRight,
   Hourglass,
   Briefcase,
-  Clock
+  Clock,
+  Boxes
 } from 'lucide-react';
-import { Driver, ExpenseItem, DriverAttendance } from '../types';
+import { Driver, ExpenseItem } from '../types';
 import { formatCurrency } from '../utils/formatters';
 
 interface StatsCardsProps {
   drivers: Driver[];
   expenses: ExpenseItem[];
-  attendanceList?: DriverAttendance[];
 }
 
-export const StatsCards: React.FC<StatsCardsProps> = ({ drivers, expenses, attendanceList = [] }) => {
+export const StatsCards: React.FC<StatsCardsProps> = ({ drivers, expenses }) => {
   const totalDrivers = drivers.length;
   const approvedDrivers = drivers.filter(d => d.approvalStatus !== 'pending');
   const pendingDrivers = drivers.filter(d => d.approvalStatus === 'pending');
   const fulltimeCount = drivers.filter(d => (d.workingType || 'fulltime') === 'fulltime' && d.approvalStatus !== 'pending').length;
   const parttimeCount = drivers.filter(d => d.workingType === 'parttime' && d.approvalStatus !== 'pending').length;
 
-  // Realtime attendance stats today
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayAttendance = attendanceList.filter(a => a.date === todayStr);
-  const onDutyCount = todayAttendance.filter(a => a.status === 'on_duty').length;
-  const emergencyLeaveCount = todayAttendance.filter(a => a.status === 'emergency_leave').length;
-
   const activeDrivers = approvedDrivers.filter(d => !d.isRevoked);
-  const helmetCount = drivers.filter(d => d.hasHelmet && !d.revokedHelmet).length;
-  const shirtCount = drivers.filter(d => d.hasShirt && !d.revokedShirt).length;
+  const totalHelmetsIssued = drivers.reduce((acc, d) => (d.hasHelmet && !d.revokedHelmet ? acc + (d.helmetQuantity || 1) : acc), 0);
+  const totalShirtsIssued = drivers.reduce((acc, d) => (d.hasShirt && !d.revokedShirt ? acc + (d.shirtQuantity || 1) : acc), 0);
   const fullyEquippedCount = activeDrivers.filter(d => d.hasHelmet && d.hasShirt).length;
 
-  // Tiền thu
+  // Tiền thu cọc
   const totalFeeCollected = drivers.reduce((acc, d) => acc + (d.uniformFeePaid || 0), 0);
   const totalFeeRequired = drivers.reduce((acc, d) => acc + (d.uniformFeeRequired || 0), 0);
   const unpaidFee = Math.max(0, totalFeeRequired - totalFeeCollected);
@@ -94,12 +88,12 @@ export const StatsCards: React.FC<StatsCardsProps> = ({ drivers, expenses, atten
         <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px] space-y-1">
           <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
             <span className="flex items-center">
-              <Briefcase className="w-3 h-3 mr-1 text-blue-500" />
-              Fulltime: <strong className="ml-1 text-slate-800 dark:text-slate-200">{fulltimeCount}</strong>
+              <Shirt className="w-3 h-3 mr-1 text-amber-500" />
+              Đã cấp áo: <strong className="ml-1 text-slate-800 dark:text-slate-200">{totalShirtsIssued}</strong>
             </span>
             <span className="flex items-center">
-              <Clock className="w-3 h-3 mr-1 text-purple-500" />
-              Parttime: <strong className="ml-1 text-slate-800 dark:text-slate-200">{parttimeCount}</strong>
+              <HardHat className="w-3 h-3 mr-1 text-blue-500" />
+              Đã cấp mũ: <strong className="ml-1 text-slate-800 dark:text-slate-200">{totalHelmetsIssued}</strong>
             </span>
           </div>
           <div className="flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-medium pt-0.5">
@@ -109,15 +103,6 @@ export const StatsCards: React.FC<StatsCardsProps> = ({ drivers, expenses, atten
             </span>
             <span className="font-bold font-mono">{fullyEquippedCount} TX</span>
           </div>
-          {todayAttendance.length > 0 && (
-            <div className="flex items-center justify-between text-[10px] pt-1 border-t border-dashed border-slate-200 dark:border-slate-800">
-              <span className="text-emerald-500 font-semibold flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                Đang trực ca hôm nay:
-              </span>
-              <span className="font-bold text-emerald-400 font-mono">{onDutyCount} TX</span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -126,7 +111,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({ drivers, expenses, atten
         <div>
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
-              Tiền Đã Thu Vào
+              Tiền Cọc Đã Thu
             </span>
             <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
               <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />

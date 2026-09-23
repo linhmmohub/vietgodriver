@@ -13,7 +13,7 @@ import {
   Lock,
   UserCheck,
   FileText,
-  Shield,
+  Boxes,
   UserCog,
   Radio,
   Menu,
@@ -29,7 +29,6 @@ interface HeaderProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   driverCount: number;
-  attendanceOnDutyCount: number;
   expenseCount: number;
   revokedCount: number;
   logCount: number;
@@ -39,16 +38,14 @@ interface HeaderProps {
   onLockApp: () => void;
   onOpenDriverModal: () => void;
   onOpenExpenseModal: () => void;
-  onOpenDriverPortal: () => void;
   onExportCSV: () => void;
   onOpenBackupModal: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
-  setActiveTab,
+  setActiveTab: setActiveTabProp,
   driverCount,
-  attendanceOnDutyCount,
   expenseCount,
   revokedCount,
   logCount,
@@ -58,13 +55,19 @@ export const Header: React.FC<HeaderProps> = ({
   onLockApp,
   onOpenDriverModal,
   onOpenExpenseModal,
-  onOpenDriverPortal,
   onExportCSV,
   onOpenBackupModal,
 }) => {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const isSuperAdmin = adminUser?.role === 'super_admin';
+  const isOperationsManager = adminUser?.role === 'manager';
+  const canManageDriverOperations = isSuperAdmin || isOperationsManager;
   const isStaff = adminUser?.role === 'staff';
+
+  const setActiveTab = (tab: ActiveTab) => {
+    if (isStaff && tab !== 'attendance') return;
+    setActiveTabProp(tab);
+  };
 
   const handleSelectTab = (tab: ActiveTab) => {
     setActiveTab(tab);
@@ -73,280 +76,118 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      {/* Desktop & Mobile Header Bar */}
-      <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-30 shadow-md">
+      {/* Desktop header: a compact, single-row navigation designed for wide screens. */}
+      <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 text-white shadow-lg backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          
-          {/* Main Bar */}
-          <div className="flex items-center justify-between py-3 gap-2 sm:gap-4">
-            
-            {/* Logo & Tiêu đề */}
-            <div className="flex items-center space-x-2.5 sm:space-x-3">
-              <div className="h-10 w-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-inner shrink-0">
+          <div className="flex h-[68px] items-center gap-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="h-10 w-10 rounded-xl border border-amber-400/30 bg-amber-400/10 text-amber-300 flex items-center justify-center shadow-inner">
                 <Shirt className="h-5 w-5" />
               </div>
-              <div>
-                <div className="flex items-center space-x-1.5 sm:space-x-2 flex-wrap">
-                  <h1 className="text-sm sm:text-base md:text-lg font-extrabold text-slate-100 tracking-tight">
-                    Quản Lý Đồng Phục Tài Xế
-                  </h1>
-                  {isSuperAdmin && (
-                    <span className="text-[10px] bg-amber-500/20 text-amber-400 font-bold px-2 py-0.5 rounded-full border border-amber-500/30 shrink-0">
-                      Admin Tổng
-                    </span>
-                  )}
-                  {isStaff && (
-                    <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-bold px-2 py-0.5 rounded-full border border-indigo-500/30 shrink-0">
-                      Cấp Dưới
-                    </span>
+              <div className="leading-tight">
+                <div className="flex items-center gap-2">
+                  <h1 className="max-w-[132px] truncate text-sm font-extrabold tracking-tight text-slate-100 sm:max-w-none">VietGo Driver Ops</h1>
+                  {isSuperAdmin ? (
+                    <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-300">Admin</span>
+                  ) : isOperationsManager ? (
+                    <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-sky-300">Vận hành</span>
+                  ) : (
+                    <span className="rounded-full border border-indigo-400/30 bg-indigo-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-indigo-300">Ca trực</span>
                   )}
                 </div>
-                <p className="text-[10px] sm:text-xs text-slate-400 hidden sm:block">
-                  Theo dõi Mũ & Áo, thu cọc, hoàn tiền vi phạm, phân quyền & nhật ký thao tác
-                </p>
+                <p className="hidden xl:block text-[10px] text-slate-500">Điều hành tài xế, đồng phục và điểm danh</p>
               </div>
             </div>
 
-            {/* Desktop Actions */}
-            <div className="hidden md:flex items-center flex-wrap gap-2">
-              {/* User status / Login button */}
-              {adminUser ? (
-                <div className="inline-flex items-center bg-slate-800/90 rounded-xl p-0.5 border border-slate-700">
-                  <button
-                    id="btn-admin-profile"
-                    onClick={onOpenProfileModal}
-                    title="Xem tài khoản & Đổi mật khẩu"
-                    className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold hover:bg-slate-700 transition ${
-                      isSuperAdmin ? 'text-amber-400 hover:text-amber-300' : 'text-indigo-400 hover:text-indigo-300'
-                    }`}
-                  >
-                    {isSuperAdmin ? (
-                      <ShieldCheck className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
-                    ) : (
-                      <UserCheck className="w-3.5 h-3.5 mr-1.5 text-indigo-400" />
-                    )}
-                    <span className="max-w-[120px] truncate font-medium">
-                      {adminUser.displayName || adminUser.username}
-                    </span>
-                  </button>
-                  <button
-                    id="btn-lock-app"
-                    onClick={onLockApp}
-                    title="Đăng xuất / Khóa màn hình"
-                    className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-700/60 rounded-lg transition"
-                  >
-                    <Lock className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  id="btn-header-login-admin"
-                  onClick={onOpenLoginModal}
-                  title="Đăng nhập tài khoản"
-                  className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/40 shadow-xs transition active:scale-95"
-                >
-                  <Key className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
-                  <span>Đăng Nhập</span>
+            <nav className="hidden md:flex min-w-0 flex-1 items-center gap-1 overflow-x-auto no-scrollbar" aria-label="Điều hướng chính">
+              {canManageDriverOperations && (
+                <button id="tab-drivers" onClick={() => setActiveTab('drivers')} className={`desktop-nav-item ${activeTab === 'drivers' ? 'desktop-nav-item-active-amber' : ''}`}>
+                  <Users className="h-4 w-4" /><span>Hồ sơ TX</span><span className="desktop-nav-count">{driverCount}</span>
                 </button>
               )}
-
-              {/* Backup button only for super admin */}
+              <button id="tab-attendance" onClick={() => setActiveTab('attendance')} className={`desktop-nav-item ${activeTab === 'attendance' ? 'desktop-nav-item-active-emerald' : ''}`}>
+                <Radio className="h-4 w-4" /><span>Điểm danh</span>
+              </button>
+              {canManageDriverOperations && (
+                <button id="tab-inventory" onClick={() => setActiveTab('inventory')} className={`desktop-nav-item ${activeTab === 'inventory' ? 'desktop-nav-item-active-amber' : ''}`}>
+                  <Boxes className="h-4 w-4" /><span>Đồng phục</span>
+                </button>
+              )}
               {isSuperAdmin && (
-                <button
-                  id="btn-backup-data"
-                  onClick={onOpenBackupModal}
-                  title="Sao lưu hoặc phục hồi dữ liệu JSON"
-                  className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-700 transition"
-                >
-                  <Database className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
-                  Sao lưu
+                <button id="tab-expenses" onClick={() => setActiveTab('expenses')} className={`desktop-nav-item ${activeTab === 'expenses' ? 'desktop-nav-item-active-emerald' : ''}`}>
+                  <Receipt className="h-4 w-4" /><span>Thu chi</span><span className="desktop-nav-count">{expenseCount}</span>
                 </button>
               )}
-
-              <button
-                id="btn-open-driver-portal"
-                onClick={onOpenDriverPortal}
-                title="Mở cổng cho tài xế đăng nhập điểm danh vào/ra ca realtime"
-                className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 shadow-xs transition active:scale-95"
-              >
-                <Radio className="w-3.5 h-3.5 mr-1.5 text-emerald-400 animate-pulse" />
-                <span>Cổng Tài Xế Điểm Danh</span>
-              </button>
-
-              <button
-                id="btn-export-csv"
-                onClick={onExportCSV}
-                title="Xuất danh sách ra file Excel / CSV"
-                className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-700 transition"
-              >
-                <Download className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
-                Xuất Excel
-              </button>
-
-              {activeTab === 'drivers' && (
-                <button
-                  id="btn-add-driver"
-                  onClick={onOpenDriverModal}
-                  className="inline-flex items-center px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-sm transition active:scale-95"
-                >
-                  <Plus className="w-4 h-4 mr-1 text-slate-950 stroke-[2.5]" />
-                  Thêm tài xế
+              {isSuperAdmin && (
+                <button id="tab-summary" onClick={() => setActiveTab('summary')} className={`desktop-nav-item ${activeTab === 'summary' ? 'desktop-nav-item-active-cyan' : ''}`}>
+                  <PieChart className="h-4 w-4" /><span>Báo cáo</span>
                 </button>
               )}
-
-              {activeTab === 'expenses' && isSuperAdmin && (
-                <button
-                  id="btn-add-expense"
-                  onClick={onOpenExpenseModal}
-                  className="inline-flex items-center px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-sm transition active:scale-95"
-                >
-                  <Plus className="w-4 h-4 mr-1 text-slate-950 stroke-[2.5]" />
-                  Ghi khoản chi
+              {isSuperAdmin && (
+                <button id="tab-logs" onClick={() => setActiveTab('logs')} className={`desktop-nav-item ${activeTab === 'logs' ? 'desktop-nav-item-active-violet' : ''}`}>
+                  <FileText className="h-4 w-4" /><span>Nhật ký</span><span className="desktop-nav-count">{logCount}</span>
                 </button>
               )}
-            </div>
+              {isStaff && <span className="ml-2 whitespace-nowrap text-xs text-indigo-200/80">Chỉ xem tài xế đang trực</span>}
+            </nav>
 
-            {/* Mobile Header Quick Bar (Driver Portal + Menu Trigger) */}
-            <div className="flex md:hidden items-center space-x-1.5">
-              <button
-                onClick={onOpenDriverPortal}
-                className="px-2.5 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold flex items-center gap-1 active:scale-95 transition"
-                title="Cổng điểm danh tài xế"
-              >
-                <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
-                <span>Điểm danh</span>
-              </button>
-
-              <button
-                id="btn-mobile-menu-toggle"
-                onClick={() => setIsMobileDrawerOpen(true)}
-                className="p-2 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition flex items-center justify-center"
-                aria-label="Mở menu quản lý task trên điện thoại"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-            </div>
-
-          </div>
-
-          {/* Desktop Tab Navigation */}
-          <div className="hidden md:flex space-x-1 border-t border-slate-800/80 pt-1 overflow-x-auto no-scrollbar">
-            
-            {/* Tab 1: Tài xế */}
-            <button
-              id="tab-drivers"
-              onClick={() => setActiveTab('drivers')}
-              className={`flex items-center py-2.5 px-3.5 border-b-2 text-xs sm:text-sm font-semibold transition shrink-0 ${
-                activeTab === 'drivers'
-                  ? 'border-amber-400 text-amber-400 bg-amber-500/5'
-                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
-              }`}
-            >
-              <Users className="w-4 h-4 mr-2" />
-              <span>Tài xế & Đồng phục</span>
-              <span className="ml-2 px-1.5 py-0.2 rounded-full text-xs bg-slate-800 text-slate-300 border border-slate-700 font-mono">
-                {driverCount}
-              </span>
-              {revokedCount > 0 && (
-                <span 
-                  className="ml-1.5 px-1.5 py-0.2 rounded-full text-[11px] bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center font-mono"
-                  title={`${revokedCount} tài xế bị thu hồi đồng phục vi phạm`}
-                >
-                  <ShieldAlert className="w-3 h-3 mr-0.5" />
-                  {revokedCount}
-                </span>
-              )}
-            </button>
-
-            {/* Tab 2: Điều phối & Điểm danh */}
-            <button
-              id="tab-dispatch"
-              onClick={() => setActiveTab('dispatch')}
-              className={`flex items-center py-2.5 px-3.5 border-b-2 text-xs sm:text-sm font-semibold transition shrink-0 ${
-                activeTab === 'dispatch'
-                  ? 'border-emerald-400 text-emerald-400 bg-emerald-500/5'
-                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
-              }`}
-            >
-              <Radio className="w-4 h-4 mr-2 text-emerald-400" />
-              <span>Điều phối & Điểm danh</span>
-              <span className="ml-2 px-1.5 py-0.2 rounded-full text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono font-bold">
-                {attendanceOnDutyCount} đang chạy
-              </span>
-            </button>
-
-            {/* Super Admin Only Tabs */}
-            {isSuperAdmin && (
-              <>
-                <button
-                  id="tab-expenses"
-                  onClick={() => setActiveTab('expenses')}
-                  className={`flex items-center py-2.5 px-3.5 border-b-2 text-xs sm:text-sm font-semibold transition shrink-0 ${
-                    activeTab === 'expenses'
-                      ? 'border-emerald-400 text-emerald-400 bg-emerald-500/5'
-                      : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
-                  }`}
-                >
-                  <Receipt className="w-4 h-4 mr-2" />
-                  <span>Chi tiêu & Bill</span>
-                  <span className="ml-2 px-1.5 py-0.2 rounded-full text-xs bg-slate-800 text-slate-300 border border-slate-700 font-mono">
-                    {expenseCount}
-                  </span>
-                </button>
-
-                <button
-                  id="tab-summary"
-                  onClick={() => setActiveTab('summary')}
-                  className={`flex items-center py-2.5 px-3.5 border-b-2 text-xs sm:text-sm font-semibold transition shrink-0 ${
-                    activeTab === 'summary'
-                      ? 'border-cyan-400 text-cyan-400 bg-cyan-500/5'
-                      : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
-                  }`}
-                >
-                  <PieChart className="w-4 h-4 mr-2" />
-                  <span>Báo cáo & Quỹ</span>
-                </button>
-
-                <button
-                  id="tab-logs"
-                  onClick={() => setActiveTab('logs')}
-                  className={`flex items-center py-2.5 px-3.5 border-b-2 text-xs sm:text-sm font-semibold transition shrink-0 ${
-                    activeTab === 'logs'
-                      ? 'border-purple-400 text-purple-400 bg-purple-500/5'
-                      : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
-                  }`}
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  <span>Nhật ký thao tác</span>
-                  <span className="ml-2 px-1.5 py-0.2 rounded-full text-xs bg-slate-800 text-slate-300 border border-slate-700 font-mono">
-                    {logCount}
-                  </span>
-                </button>
-
+            <div className="hidden md:flex shrink-0 items-center gap-1.5">
+              {isSuperAdmin && (
                 <button
                   id="tab-users"
                   onClick={() => setActiveTab('users')}
-                  className={`flex items-center py-2.5 px-3.5 border-b-2 text-xs sm:text-sm font-semibold transition shrink-0 ${
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-xs font-bold transition ${
                     activeTab === 'users'
-                      ? 'border-indigo-400 text-indigo-400 bg-indigo-500/5'
-                      : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                      ? 'border-indigo-400/60 bg-indigo-400 text-slate-950'
+                      : 'border-indigo-400/30 bg-indigo-400/10 text-indigo-200 hover:bg-indigo-400/20'
                   }`}
+                  title="Tạo tài khoản và phân quyền"
                 >
-                  <UserCog className="w-4 h-4 mr-2" />
-                  <span>Phân quyền cấp dưới</span>
+                  <UserCog className="h-4 w-4" />
+                  <span className="hidden xl:inline">Tài khoản & quyền</span>
+                  <span className="xl:hidden">Phân quyền</span>
                 </button>
-              </>
-            )}
+              )}
+              {isSuperAdmin && (
+                <button id="tab-settings" onClick={() => setActiveTab('settings')} className={`rounded-xl border p-2 transition ${activeTab === 'settings' ? 'border-amber-400/60 bg-amber-400/15 text-amber-300' : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'}`} title="Cấu hình danh mục & chi phí">
+                  <Settings className="h-4 w-4" />
+                </button>
+              )}
+              {isSuperAdmin && (
+                <button id="btn-export-csv" onClick={onExportCSV} className="rounded-xl border border-slate-700 bg-slate-900 p-2 text-slate-400 transition hover:text-white" title="Xuất Excel">
+                  <Download className="h-4 w-4" />
+                </button>
+              )}
+              {isSuperAdmin && (
+                <button id="btn-backup-data" onClick={onOpenBackupModal} className="rounded-xl border border-slate-700 bg-slate-900 p-2 text-slate-400 transition hover:text-white" title="Sao lưu / khôi phục">
+                  <Database className="h-4 w-4" />
+                </button>
+              )}
+              {canManageDriverOperations && (
+                <button id="btn-add-driver" onClick={onOpenDriverModal} className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-3 py-2 text-xs font-extrabold text-slate-950 transition hover:bg-amber-300" title="Tạo tài xế">
+                  <Plus className="h-4 w-4 stroke-[3]" /><span className="hidden lg:inline">Tài xế mới</span>
+                </button>
+              )}
+              {adminUser ? (
+                <div className="ml-1 inline-flex items-center rounded-xl border border-slate-700 bg-slate-900 p-0.5">
+                  <button id="btn-admin-profile" onClick={onOpenProfileModal} className={`inline-flex max-w-[116px] items-center gap-1.5 truncate rounded-lg px-2 py-1.5 text-xs font-semibold transition ${isSuperAdmin ? 'text-amber-300 hover:bg-slate-800' : 'text-indigo-300 hover:bg-slate-800'}`} title="Hồ sơ và đổi mật khẩu">
+                    {isSuperAdmin ? <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> : <UserCheck className="h-3.5 w-3.5 shrink-0" />}
+                    <span className="truncate">{adminUser.displayName || adminUser.username}</span>
+                  </button>
+                  <button id="btn-lock-app" onClick={onLockApp} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-400/10 hover:text-rose-300" title="Đăng xuất">
+                    <Lock className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button id="btn-header-login-admin" onClick={onOpenLoginModal} className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-3 py-2 text-xs font-bold text-slate-950"><Key className="h-3.5 w-3.5" />Đăng nhập</button>
+              )}
+            </div>
 
-            {isStaff && (
-              <div className="flex items-center py-2 px-3 text-xs text-slate-400 bg-slate-800/40 rounded-lg shrink-0 border border-slate-800">
-                <span className="inline-block w-2 h-2 rounded-full bg-indigo-400 mr-2"></span>
-                <span>Tài khoản cấp dưới: Quản lý Tài xế & Điều phối</span>
-              </div>
-            )}
-
+            <div className="flex md:hidden items-center space-x-1.5">
+              {canManageDriverOperations && <button onClick={onOpenDriverModal} className="px-2.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 text-[11px] font-bold flex items-center gap-1 active:scale-95 transition" title="Thêm tài xế mới"><Plus className="w-3.5 h-3.5 stroke-[3]" /><span>Cấp TX</span></button>}
+              <button id="btn-mobile-menu-toggle" onClick={() => setIsMobileDrawerOpen(true)} className="p-2 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition flex items-center justify-center" aria-label="Mở menu quản lý"><Menu className="w-5 h-5" /></button>
+            </div>
           </div>
-
         </div>
       </header>
 
@@ -391,7 +232,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* Drawer Body (Scrollable) */}
-            <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(88vh-80px)] pb-10">
+            <div className="mobile-safe-bottom p-4 space-y-4 overflow-y-auto max-h-[calc(88vh-80px)] pb-10">
               
               {/* SECTION 1: PHÂN HỆ TÁC VỤ (TASKS / MODULES) */}
               <div className="space-y-1.5">
@@ -400,8 +241,8 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="text-[10px] text-slate-500 font-normal">Chạm để mở</span>
                 </div>
 
-                {/* 1. Tài xế & Đồng phục */}
-                <button
+                {/* 1. Tài xế & Cấp phát */}
+                {canManageDriverOperations && <button
                   onClick={() => handleSelectTab('drivers')}
                   className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition active:scale-98 ${
                     activeTab === 'drivers'
@@ -414,7 +255,7 @@ export const Header: React.FC<HeaderProps> = ({
                       <Users className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="text-sm font-bold">Tài Xế & Đồng Phục</div>
+                      <div className="text-sm font-bold">Hồ Sơ Tài Xế & Cấp Phát</div>
                       <div className="text-[11px] text-slate-400">Danh sách tài xế, cấp phát mũ/áo, tiền cọc</div>
                     </div>
                   </div>
@@ -429,33 +270,53 @@ export const Header: React.FC<HeaderProps> = ({
                     )}
                     <ChevronRight className="w-4 h-4 text-slate-500" />
                   </div>
-                </button>
+                </button>}
 
-                {/* 2. Điều phối & Điểm danh */}
                 <button
-                  onClick={() => handleSelectTab('dispatch')}
+                  onClick={() => handleSelectTab('attendance')}
                   className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition active:scale-98 ${
-                    activeTab === 'dispatch'
+                    activeTab === 'attendance'
                       ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
                       : 'bg-slate-850 border-slate-800 text-slate-200 hover:bg-slate-800'
                   }`}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className={`p-2 rounded-xl ${activeTab === 'dispatch' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>
-                      <Radio className="w-5 h-5 animate-pulse" />
+                    <div className={`p-2 rounded-xl ${activeTab === 'attendance' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>
+                      <Radio className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="text-sm font-bold">Điều Phối & Điểm Danh</div>
-                      <div className="text-[11px] text-slate-400">Theo dõi ca sáng/chiều/tối & khu vực trực</div>
+                      <div className="text-sm font-bold">Điểm Danh & Điều Phối</div>
+                      <div className="text-[11px] text-slate-400">Theo dõi ca trực, checkout và nghỉ đột xuất</div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-500" />
+                </button>
+
+                {/* 2. Kho & Phân Bổ Size */}
+                {canManageDriverOperations && <button
+                  onClick={() => handleSelectTab('inventory')}
+                  className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition active:scale-98 ${
+                    activeTab === 'inventory'
+                      ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                      : 'bg-slate-850 border-slate-800 text-slate-200 hover:bg-slate-800'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className={`p-2 rounded-xl ${activeTab === 'inventory' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-400'}`}>
+                      <Boxes className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold">Kho & Cấp Phát Đồng Phục</div>
+                      <div className="text-[11px] text-slate-400">Phân loại size S/M/L/XL/XXL/3XL & tồn kho</div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-1.5">
-                    <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      {attendanceOnDutyCount} online
+                    <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Kho size
                     </span>
                     <ChevronRight className="w-4 h-4 text-slate-500" />
                   </div>
-                </button>
+                </button>}
 
                 {/* Super Admin Tabs */}
                 {isSuperAdmin && (
@@ -553,12 +414,33 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                       <ChevronRight className="w-4 h-4 text-slate-500" />
                     </button>
+
+                    {/* 7. Cấu hình danh mục & chi phí */}
+                    <button
+                      onClick={() => handleSelectTab('settings')}
+                      className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition active:scale-98 ${
+                        activeTab === 'settings'
+                          ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                          : 'bg-slate-850 border-slate-800 text-slate-200 hover:bg-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`p-2 rounded-xl ${activeTab === 'settings' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-400'}`}>
+                          <Settings className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold">Cấu Hình Danh Mục & Chi Phí</div>
+                          <div className="text-[11px] text-slate-400">Tùy chỉnh Áo, Mũ, Thùng, Phụ kiện & Đơn giá cọc</div>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-500" />
+                    </button>
                   </>
                 )}
               </div>
 
               {/* SECTION 2: HÀNH ĐỘNG TỨC THÌ (QUICK ACTIONS) */}
-              <div className="space-y-2 pt-2 border-t border-slate-800">
+              {isSuperAdmin && <div className="space-y-2 pt-2 border-t border-slate-800">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-2">
                   Tác Vụ Nhanh
                 </div>
@@ -573,20 +455,22 @@ export const Header: React.FC<HeaderProps> = ({
                     className="p-3 rounded-2xl bg-amber-500 text-slate-950 font-bold text-xs flex flex-col items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
                   >
                     <Plus className="w-4 h-4 stroke-[3]" />
-                    <span>+ Thêm Tài Xế</span>
+                    <span>+ Cấp TX Mới</span>
                   </button>
 
-                  {/* Action 2: Mở cổng điểm danh */}
-                  <button
-                    onClick={() => {
-                      setIsMobileDrawerOpen(false);
-                      onOpenDriverPortal();
-                    }}
-                    className="p-3 rounded-2xl bg-emerald-500 text-slate-950 font-bold text-xs flex flex-col items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
-                  >
-                    <Radio className="w-4 h-4 stroke-[3]" />
-                    <span>Cổng Điểm Danh</span>
-                  </button>
+                  {/* Action 2: Ghi khoản chi */}
+                  {isSuperAdmin && (
+                    <button
+                      onClick={() => {
+                        setIsMobileDrawerOpen(false);
+                        onOpenExpenseModal();
+                      }}
+                      className="p-3 rounded-2xl bg-emerald-500 text-slate-950 font-bold text-xs flex flex-col items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
+                    >
+                      <Plus className="w-4 h-4 stroke-[3]" />
+                      <span>+ Ghi Khoản Chi</span>
+                    </button>
+                  )}
 
                   {/* Action 3: Xuất Excel */}
                   <button
@@ -616,7 +500,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <div />
                   )}
                 </div>
-              </div>
+              </div>}
 
               {/* SECTION 3: TÀI KHOẢN & BẢO MẬT */}
               <div className="pt-2 border-t border-slate-800">
@@ -681,7 +565,7 @@ export const Header: React.FC<HeaderProps> = ({
         aria-label="Thanh điều hướng nhanh trên điện thoại"
       >
         {/* 1. Tab Tài xế */}
-        <button
+        {canManageDriverOperations && <button
           onClick={() => setActiveTab('drivers')}
           className={`flex-1 py-1.5 px-1 rounded-2xl flex flex-col items-center justify-center transition ${
             activeTab === 'drivers'
@@ -696,33 +580,42 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
           <span className="text-[10px] mt-1">Tài xế</span>
-        </button>
+        </button>}
 
-        {/* 2. Tab Điều phối */}
-        <button
-          onClick={() => setActiveTab('dispatch')}
+        {/* 2. Tab Kho & Size */}
+        {canManageDriverOperations && <button
+          onClick={() => setActiveTab('inventory')}
           className={`flex-1 py-1.5 px-1 rounded-2xl flex flex-col items-center justify-center transition ${
-            activeTab === 'dispatch'
-              ? 'text-emerald-400 font-bold'
+            activeTab === 'inventory'
+              ? 'text-amber-400 font-bold'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
           <div className="relative">
-            <Radio className="w-5 h-5 text-emerald-400" />
-            <span className="absolute -top-1.5 -right-2.5 px-1 rounded-full text-[9px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-              {attendanceOnDutyCount}
-            </span>
+            <Boxes className="w-5 h-5" />
           </div>
-          <span className="text-[10px] mt-1">Điều phối</span>
+          <span className="text-[10px] mt-1">Kho Size</span>
+        </button>}
+
+        <button
+          onClick={() => setActiveTab('attendance')}
+          className={`flex-1 py-1.5 px-1 rounded-2xl flex flex-col items-center justify-center transition ${
+            activeTab === 'attendance'
+              ? 'text-emerald-400 font-bold'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Radio className="w-5 h-5" />
+          <span className="text-[10px] mt-1">Điểm danh</span>
         </button>
 
-        {/* 3. Tab Chi tiêu or Báo cáo */}
-        {isSuperAdmin ? (
+        {/* 3. Tab Chi tiêu */}
+        {isSuperAdmin && (
           <button
             onClick={() => setActiveTab('expenses')}
             className={`flex-1 py-1.5 px-1 rounded-2xl flex flex-col items-center justify-center transition ${
               activeTab === 'expenses'
-                ? 'text-cyan-400 font-bold'
+                ? 'text-emerald-400 font-bold'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -734,7 +627,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <span className="text-[10px] mt-1">Chi tiêu</span>
           </button>
-        ) : null}
+        )}
 
         {/* 4. Menu & All Tasks Trigger */}
         <button
