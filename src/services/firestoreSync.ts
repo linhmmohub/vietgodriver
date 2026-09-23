@@ -22,6 +22,7 @@ import {
   SystemFeeSettings,
   AuthSettings,
   DriverAttendance,
+  DriverAttendanceEvent,
   AttendanceSettings,
   DriverLiveStatus,
   DriverRoutePoint
@@ -39,6 +40,7 @@ import {
 const DRIVERS_COLLECTION = 'drivers';
 const EXPENSES_COLLECTION = 'expenses';
 const ATTENDANCE_COLLECTION = 'driver_attendance';
+const ATTENDANCE_EVENTS_COLLECTION = 'driver_attendance_events';
 const DRIVER_LIVE_STATUS_COLLECTION = 'driver_live_status';
 const DRIVER_LIVE_ROUTES_COLLECTION = 'driver_live_routes';
 const USERS_COLLECTION = 'system_users';
@@ -297,6 +299,14 @@ export function subscribeCloudAttendance(callback: (attendance: DriverAttendance
   }, (error) => console.error('Cloud attendance sync error:', error));
 }
 
+export function subscribeCloudAttendanceEvents(callback: (events: DriverAttendanceEvent[]) => void) {
+  return onSnapshot(collection(db, ATTENDANCE_EVENTS_COLLECTION), (snapshot) => {
+    const list = snapshot.docs.map(docSnap => ({ ...docSnap.data(), id: docSnap.id } as DriverAttendanceEvent));
+    list.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
+    callback(list);
+  }, (error) => console.error('Cloud attendance-event sync error:', error));
+}
+
 /** Live presence is intentionally a separate collection from attendance. */
 export function subscribeCloudDriverLiveStatus(callback: (statuses: DriverLiveStatus[]) => void) {
   return onSnapshot(collection(db, DRIVER_LIVE_STATUS_COLLECTION), (snapshot) => {
@@ -452,10 +462,22 @@ export async function saveExpenseToCloud(expense: ExpenseItem): Promise<boolean>
 
 export async function saveAttendanceToCloud(attendance: DriverAttendance): Promise<boolean> {
   try {
-    await setDoc(doc(db, ATTENDANCE_COLLECTION, attendance.id), attendance, { merge: true });
+    // A daily summary can be restarted after checkout, so overwrite stale
+    // checkout fields instead of preserving them through a merge.
+    await setDoc(doc(db, ATTENDANCE_COLLECTION, attendance.id), attendance);
     return true;
   } catch (err) {
     console.error('Error saving attendance to cloud:', err);
+    return false;
+  }
+}
+
+export async function saveAttendanceEventToCloud(event: DriverAttendanceEvent): Promise<boolean> {
+  try {
+    await setDoc(doc(db, ATTENDANCE_EVENTS_COLLECTION, event.id), event);
+    return true;
+  } catch (err) {
+    console.error('Error saving attendance event to cloud:', err);
     return false;
   }
 }

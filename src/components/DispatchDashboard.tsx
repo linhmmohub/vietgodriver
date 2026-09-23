@@ -20,14 +20,16 @@ import {
   Activity,
   UserPlus
 } from 'lucide-react';
-import { Driver, DriverAttendance, AttendanceShift, DriverShiftStatus, AttendanceSettings, DriverLiveStatus } from '../types';
+import { Driver, DriverAttendance, DriverAttendanceEvent, AttendanceShift, DriverShiftStatus, AttendanceSettings, DriverLiveStatus } from '../types';
 import { getTodayDateString } from '../utils/formatters';
 import { LiveDriverMap } from './LiveDriverMap';
 import { getVietgoAvailability } from '../utils/availability';
+import { AttendancePerformancePanel } from './AttendancePerformancePanel';
 
 interface DispatchDashboardProps {
   drivers: Driver[];
   attendanceList: DriverAttendance[];
+  attendanceEvents: DriverAttendanceEvent[];
   attendanceSettings: AttendanceSettings;
   liveDriverStatuses: DriverLiveStatus[];
   onOpenDriverPortal: () => void;
@@ -46,6 +48,7 @@ const shiftInfo = (shifts: AttendanceShift | AttendanceShift[], settings: Attend
 export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
   drivers,
   attendanceList,
+  attendanceEvents,
   attendanceSettings,
   liveDriverStatuses,
   onOpenDriverPortal,
@@ -173,6 +176,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
     <div className="space-y-6">
 
       <LiveDriverMap statuses={liveDriverStatuses} canViewLocation={!readOnly} canViewRoute={!readOnly} />
+      {!readOnly && <AttendancePerformancePanel events={attendanceEvents} selectedDate={selectedDate} />}
       
       {/* Top Banner: Realtime Dispatch & Action Buttons */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">

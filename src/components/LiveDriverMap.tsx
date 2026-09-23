@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Activity, Clock3, ExternalLink, MapPin, Radio, RefreshCw, ShieldCheck, Users } from 'lucide-react';
+import { Activity, Clock3, ExternalLink, MapPin, Radio, ShieldCheck, Users } from 'lucide-react';
 import { DriverLiveStatus, DriverRoutePoint } from '../types';
 import { subscribeCloudDriverRoute } from '../services/firestoreSync';
 import { getTodayDateString } from '../utils/formatters';
@@ -93,8 +93,8 @@ const FitLiveDrivers: React.FC<{ statuses: DriverLiveStatus[] }> = ({ statuses }
 
 export const LiveDriverMap: React.FC<LiveDriverMapProps> = ({ statuses, canViewLocation, viewerDriverId, canViewRoute = false, compact = false }) => {
   const [now, setNow] = useState(() => Date.now());
+  const [mapPresentation, setMapPresentation] = useState<'place' | 'fleet'>('place');
   const [mapSourceIndex, setMapSourceIndex] = useState(0);
-  const [mapAttempt, setMapAttempt] = useState(0);
   const [tilesUnavailable, setTilesUnavailable] = useState(false);
   const [routeDriverId, setRouteDriverId] = useState<string | null>(null);
   const [routePoints, setRoutePoints] = useState<DriverRoutePoint[]>([]);
@@ -112,6 +112,10 @@ export const LiveDriverMap: React.FC<LiveDriverMapProps> = ({ statuses, canViewL
   const selectedRouteDriverId = routeDriverId && liveStatuses.some(status => status.driverId === routeDriverId)
     ? routeDriverId
     : liveStatuses[0]?.driverId || null;
+  const focusedDriver = liveStatuses.find(status => status.driverId === selectedRouteDriverId) || liveStatuses[0] || null;
+  const googleMapsEmbedUrl = focusedDriver
+    ? `https://www.google.com/maps?q=${focusedDriver.latitude},${focusedDriver.longitude}&z=16&output=embed`
+    : '';
   useEffect(() => {
     if (!canViewRoute || !selectedRouteDriverId) {
       setRoutePoints([]);
@@ -136,12 +140,6 @@ export const LiveDriverMap: React.FC<LiveDriverMapProps> = ({ statuses, canViewL
       return;
     }
     setTilesUnavailable(true);
-  };
-  const retryMap = () => {
-    sourceErrorHandled.current = false;
-    setTilesUnavailable(false);
-    setMapSourceIndex(0);
-    setMapAttempt(attempt => attempt + 1);
   };
 
   return (
@@ -172,24 +170,25 @@ export const LiveDriverMap: React.FC<LiveDriverMapProps> = ({ statuses, canViewL
       ) : (
         <div className={`mt-4 grid gap-4 ${compact ? '' : 'xl:grid-cols-[minmax(0,1fr)_280px]'}`}>
           <div className={`relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 ${compact ? 'h-[250px]' : 'h-[340px]'}`}>
-            <MapContainer center={defaultCenter} zoom={13} scrollWheelZoom className="h-full w-full" aria-label="Bản đồ tài xế trực tuyến">
-              <TileLayer key={`${mapSource.url}-${mapAttempt}`} attribution={mapSource.attribution} url={mapSource.url} eventHandlers={{ tileerror: handleTileError }} />
-              <FitLiveDrivers statuses={liveStatuses} />
-              {canViewRoute && routePoints.length > 1 && <Polyline positions={routePoints.map(point => [point.latitude, point.longitude] as [number, number])} pathOptions={{ color: '#f59e0b', weight: 4, opacity: 0.8 }} />}
-              {liveStatuses.map(status => (
-                <CircleMarker key={status.driverId} center={[status.latitude, status.longitude]} radius={11} pathOptions={{ color: '#052e16', weight: 2, fillColor: '#22c55e', fillOpacity: 0.95 }}>
-                  <Popup><strong>{status.driverName}</strong><br />{status.driverCode}{status.licensePlate ? ` · ${status.licensePlate}` : ''}<br />Hoạt động: {formatDuration(operatingDuration(status.onlineSince, new Date(now)))}<br />Cập nhật: {formatLastSeen(status.lastSeenAt, now)}</Popup>
-                </CircleMarker>
-              ))}
-            </MapContainer>
-            {tilesUnavailable && (
-              <div className="absolute inset-0 z-[500] flex flex-col items-center justify-center bg-slate-900/95 p-5 text-center">
-                <MapPin className="mb-2 h-7 w-7 text-amber-400" />
-                <p className="font-bold text-white">Không tải được nền bản đồ từ mạng hiện tại</p>
-                <p className="mt-1 max-w-sm text-xs leading-relaxed text-slate-400">GPS vẫn đang lưu trên Cloud. Mạng này đang chặn cả hai nguồn bản đồ công cộng; bạn vẫn có thể mở vị trí chính xác của từng tài xế bên phải.</p>
-                <button type="button" onClick={retryMap} className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-slate-600 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"><RefreshCw className="h-3.5 w-3.5" /> Thử tải lại bản đồ</button>
-              </div>
+            <div className="absolute left-3 top-3 z-[500] inline-flex rounded-xl border border-slate-600 bg-slate-950/90 p-1 shadow-lg backdrop-blur">
+              <button type="button" onClick={() => setMapPresentation('place')} className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${mapPresentation === 'place' ? 'bg-emerald-400 text-slate-950' : 'text-slate-300'}`}>Địa điểm</button>
+              <button type="button" onClick={() => { setTilesUnavailable(false); setMapPresentation('fleet'); }} className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${mapPresentation === 'fleet' ? 'bg-amber-400 text-slate-950' : 'text-slate-300'}`}>Đội xe</button>
+            </div>
+            {mapPresentation === 'place' || tilesUnavailable ? (
+              <iframe title={`Bản đồ địa điểm của ${focusedDriver?.driverName || 'tài xế'}`} src={googleMapsEmbedUrl} className="h-full w-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+            ) : (
+              <MapContainer center={defaultCenter} zoom={13} scrollWheelZoom className="h-full w-full" aria-label="Bản đồ tài xế trực tuyến">
+                <TileLayer key={mapSource.url} attribution={mapSource.attribution} url={mapSource.url} eventHandlers={{ tileerror: handleTileError }} />
+                <FitLiveDrivers statuses={liveStatuses} />
+                {canViewRoute && routePoints.length > 1 && <Polyline positions={routePoints.map(point => [point.latitude, point.longitude] as [number, number])} pathOptions={{ color: '#f59e0b', weight: 4, opacity: 0.8 }} />}
+                {liveStatuses.map(status => (
+                  <CircleMarker key={status.driverId} center={[status.latitude, status.longitude]} radius={11} pathOptions={{ color: '#052e16', weight: 2, fillColor: '#22c55e', fillOpacity: 0.95 }}>
+                    <Popup><strong>{status.driverName}</strong><br />{status.driverCode}{status.licensePlate ? ` · ${status.licensePlate}` : ''}<br />Hoạt động: {formatDuration(operatingDuration(status.onlineSince, new Date(now)))}<br />Cập nhật: {formatLastSeen(status.lastSeenAt, now)}</Popup>
+                  </CircleMarker>
+                ))}
+              </MapContainer>
             )}
+            {mapPresentation === 'place' && focusedDriver && <div className="absolute bottom-3 left-3 z-[500] rounded-lg bg-slate-950/90 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-lg backdrop-blur"><MapPin className="mr-1 inline h-3.5 w-3.5 text-rose-400" />{focusedDriver.driverName} · vị trí hiện tại</div>}
           </div>
           <div className={`${compact ? 'max-h-56' : 'max-h-[340px]'} space-y-2 overflow-y-auto pr-1`}>
             {liveStatuses.map(status => (
@@ -198,6 +197,7 @@ export const LiveDriverMap: React.FC<LiveDriverMapProps> = ({ statuses, canViewL
                 <p className="mt-2 text-xs text-emerald-300">{formatDuration(operatingDuration(status.onlineSince, new Date(now)))} hoạt động</p>
                 <p className="mt-1 text-[11px] text-slate-400">{formatLastSeen(status.lastSeenAt, now)}{status.accuracy ? ` · sai số ±${Math.round(status.accuracy)}m` : ''}</p>
                 {viewerStatus && status.driverId !== viewerStatus.driverId && <p className="mt-1 text-[11px] font-bold text-cyan-300">Cách bạn: {formatDistance(distanceInMeters(viewerStatus.latitude, viewerStatus.longitude, status.latitude, status.longitude))}</p>}
+                <button type="button" onClick={() => { setRouteDriverId(status.driverId); setMapPresentation('place'); }} className="mt-2 block text-[11px] font-bold text-emerald-300 hover:text-emerald-200">Xem địa điểm trên bản đồ</button>
                 {canViewRoute && <button type="button" onClick={() => setRouteDriverId(status.driverId)} className="mt-2 block text-[11px] font-bold text-amber-300 hover:text-amber-200">{selectedRouteDriverId === status.driverId ? `Hành trình hôm nay: ${routePoints.length} điểm` : 'Xem hành trình hôm nay'}</button>}
                 <a href={`https://www.google.com/maps/search/?api=1&query=${status.latitude},${status.longitude}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 hover:text-amber-200"><ExternalLink className="h-3 w-3" /> Mở vị trí chính xác</a>
               </div>

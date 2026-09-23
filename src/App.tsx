@@ -26,6 +26,7 @@ import {
   subscribeCloudDrivers, 
   subscribeCloudExpenses, 
   subscribeCloudAttendance,
+  subscribeCloudAttendanceEvents,
   subscribeCloudDriverLiveStatus,
   subscribeCloudUsers, 
   subscribeCloudLogs,
@@ -39,6 +40,7 @@ import {
   deleteDriverFromCloud,
   saveExpenseToCloud,
   saveAttendanceToCloud,
+  saveAttendanceEventToCloud,
   saveDriverLiveStatusToCloud,
   saveDriverRoutePointToCloud,
   deleteExpenseFromCloud,
@@ -87,6 +89,7 @@ import {
   DriverWorkflowSettings,
   AttendanceSettings,
   DriverAttendance,
+  DriverAttendanceEvent,
   DriverSession,
   AttendanceShift,
   DriverShiftStatus,
@@ -121,6 +124,7 @@ export default function App() {
   const [drivers, setDrivers] = useState<Driver[]>(() => getStoredDrivers());
   const [expenses, setExpenses] = useState<ExpenseItem[]>(() => getStoredExpenses());
   const [attendanceList, setAttendanceList] = useState<DriverAttendance[]>([]);
+  const [attendanceEvents, setAttendanceEvents] = useState<DriverAttendanceEvent[]>([]);
   const [liveDriverStatuses, setLiveDriverStatuses] = useState<DriverLiveStatus[]>([]);
   const [driverSession, setDriverSession] = useState<DriverSession | null>(() => getStoredDriverSession());
   const [isDriverPortalOpen, setIsDriverPortalOpen] = useState(false);
@@ -200,6 +204,10 @@ export default function App() {
       setAttendanceList(attendance);
     });
 
+    const unsubAttendanceEvents = subscribeCloudAttendanceEvents((events) => {
+      setAttendanceEvents(events);
+    });
+
     const unsubLiveDrivers = subscribeCloudDriverLiveStatus((statuses) => {
       setLiveDriverStatuses(statuses);
     });
@@ -259,6 +267,7 @@ export default function App() {
       unsubDrivers();
       unsubExpenses();
       unsubAttendance();
+      unsubAttendanceEvents();
       unsubLiveDrivers();
       unsubUsers();
       unsubLogs();
@@ -543,21 +552,60 @@ export default function App() {
   const handleSaveAttendance = async (data: Omit<DriverAttendance, 'id' | 'updatedAt'>) => {
     const id = `attendance_${data.date}_${data.driverId}`;
     const existing = attendanceList.find(item => item.id === id);
+    const now = new Date().toISOString();
+    const isActiveStatus = data.status === 'on_duty' || data.status === 'standby';
+    const wasActiveStatus = existing?.status === 'on_duty' || existing?.status === 'standby';
+    const isNewWorkSession = isActiveStatus && !wasActiveStatus;
+    const isEndingWorkSession = (data.status === 'off_duty' || data.status === 'emergency_leave') && wasActiveStatus;
     const attendance: DriverAttendance = {
       ...existing,
       ...data,
       id,
-      checkInTime: data.checkInTime ?? existing?.checkInTime ?? (
-        data.date === getTodayDateString() && (data.status === 'on_duty' || data.status === 'standby')
-          ? new Date().toISOString()
+      checkInTime: isNewWorkSession
+        ? (data.date === getTodayDateString() ? data.checkInTime ?? now : undefined)
+        : data.checkInTime ?? existing?.checkInTime ?? (
+        data.date === getTodayDateString() && isActiveStatus
+          ? now
           : undefined
       ),
-      updatedAt: new Date().toISOString(),
+      checkOutTime: isNewWorkSession ? undefined : data.checkOutTime ?? existing?.checkOutTime,
+      updatedAt: now,
     };
     setAttendanceList(prev => existing ? prev.map(item => item.id === id ? attendance : item) : [attendance, ...prev]);
     if (!(await saveAttendanceToCloud(attendance))) {
       alert('Không thể lưu điểm danh lên Cloud. Vui lòng kiểm tra kết nối rồi thử lại.');
       return;
+    }
+    const eventType = isNewWorkSession && data.date === getTodayDateString()
+      ? 'check_in'
+      : isEndingWorkSession
+        ? 'check_out'
+        : data.date !== getTodayDateString() || data.scheduleScope === 'weekly'
+          ? 'schedule_update'
+          : 'status_update';
+    const occurredAt = eventType === 'check_in'
+      ? attendance.checkInTime || now
+      : eventType === 'check_out'
+        ? attendance.checkOutTime || now
+        : now;
+    const event: DriverAttendanceEvent = {
+      id: `attendance_event_${attendance.date}_${attendance.driverId}_${eventType}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      driverId: attendance.driverId,
+      driverCode: attendance.driverCode,
+      driverName: attendance.driverName,
+      date: attendance.date,
+      eventType,
+      status: attendance.status,
+      occurredAt,
+      shift: attendance.shift,
+      busyShiftIds: attendance.busyShiftIds,
+      standbyZones: attendance.standbyZones || (attendance.standbyZone ? [attendance.standbyZone] : []),
+      note: attendance.note,
+      recordedBy: adminUser ? 'dispatcher' : 'driver',
+    };
+    setAttendanceEvents(previous => [event, ...previous]);
+    if (!(await saveAttendanceEventToCloud(event))) {
+      alert('Điểm danh đã lưu nhưng chưa thể ghi lịch sử ca lên Cloud. Vui lòng kiểm tra kết nối và cập nhật lại trạng thái.');
     }
     addAuditLog('DRIVER_UPDATE', 'Cập nhật điểm danh', `${attendance.driverName} cập nhật trạng thái ${attendance.status} ngày ${attendance.date}.`, attendance.driverName, adminUser);
   };
@@ -1056,6 +1104,7 @@ export default function App() {
           <DispatchDashboard
             drivers={drivers}
             attendanceList={attendanceList}
+            attendanceEvents={attendanceEvents}
             attendanceSettings={attendanceSettings}
             liveDriverStatuses={liveDriverStatuses}
             onOpenDriverPortal={() => setIsDriverPortalOpen(true)}

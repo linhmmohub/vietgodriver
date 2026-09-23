@@ -253,6 +253,25 @@ export interface DriverAttendance {
   updatedAt: string;
 }
 
+export type AttendanceEventType = 'check_in' | 'check_out' | 'status_update' | 'schedule_update';
+
+/** Immutable audit event. Unlike the daily attendance summary, it is never overwritten. */
+export interface DriverAttendanceEvent {
+  id: string;
+  driverId: string;
+  driverCode: string;
+  driverName: string;
+  date: string;
+  eventType: AttendanceEventType;
+  status: DriverShiftStatus;
+  occurredAt: string;
+  shift: AttendanceShift;
+  busyShiftIds?: AttendanceShift[];
+  standbyZones?: string[];
+  note?: string;
+  recordedBy?: 'driver' | 'dispatcher';
+}
+
 export interface UniformStockItem {
   id: string;
   name: string;

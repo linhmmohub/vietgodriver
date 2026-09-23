@@ -298,7 +298,9 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
       driverId: activeDriver.id, driverCode: activeDriver.code, driverName: activeDriver.name,
       driverPhone: activeDriver.phone, licensePlate: activeDriver.licensePlate,
       workingType: activeDriver.workingType || 'fulltime', date, shift: selectedShift, busyShiftIds: selectedBusyShifts, status,
-      checkInTime: date === todayStr ? (driverTodayAttendance?.checkInTime || now) : undefined,
+      checkInTime: date === todayStr && (status === 'on_duty' || status === 'standby')
+        ? ((driverTodayAttendance?.status === 'on_duty' || driverTodayAttendance?.status === 'standby') ? driverTodayAttendance.checkInTime || now : now)
+        : undefined,
       checkOutTime: date === todayStr && status === 'off_duty' ? now : undefined,
       note: note.trim() || undefined, standbyZone: finalZones[0], standbyZones: finalZones,
       absenceStartTime: status === 'emergency_leave' ? absenceStartTime || undefined : undefined,
