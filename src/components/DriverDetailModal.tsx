@@ -21,9 +21,13 @@ import {
   UserCheck,
   Key,
   Copy,
-  Check
+  Check,
+  Activity,
+  Timer,
+  LogIn,
+  LogOut
 } from 'lucide-react';
-import { Driver } from '../types';
+import { Driver, DriverAttendance, DriverAttendanceEvent } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
 interface DriverDetailModalProps {
@@ -31,13 +35,30 @@ interface DriverDetailModalProps {
   onClose: () => void;
   onEdit: (driver: Driver) => void;
   onApprove?: (driver: Driver) => void;
+  attendanceList: DriverAttendance[];
+  attendanceEvents: DriverAttendanceEvent[];
 }
+
+const formatWorkDuration = (milliseconds: number) => {
+  const minutes = Math.max(0, Math.floor(milliseconds / 60000));
+  const hours = Math.floor(minutes / 60);
+  return hours ? `${hours} giờ ${minutes % 60} phút` : `${minutes} phút`;
+};
+
+const attendanceEventLabel = (type: DriverAttendanceEvent['eventType']) => {
+  if (type === 'check_in') return 'Vào ca';
+  if (type === 'check_out') return 'Ra ca';
+  if (type === 'schedule_update') return 'Cập nhật lịch';
+  return 'Cập nhật trạng thái';
+};
 
 export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
   driver,
   onClose,
   onEdit,
   onApprove,
+  attendanceList,
+  attendanceEvents,
 }) => {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -45,6 +66,29 @@ export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
 
   const debt = Math.max(0, driver.uniformFeeRequired - driver.uniformFeePaid);
   const secretCode = driver.secretCode || (driver.phone ? driver.phone.replace(/\D/g, '').slice(-4) : '1234') || '1234';
+  const driverEvents = attendanceEvents
+    .filter(event => event.driverId === driver.id)
+    .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
+  const driverAttendance = attendanceList
+    .filter(item => item.driverId === driver.id)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const workPerformance = (() => {
+    const ordered = [...driverEvents].sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime());
+    let activeStart: number | null = null;
+    let totalMs = 0;
+    let completedSessions = 0;
+    ordered.forEach(event => {
+      const timestamp = new Date(event.occurredAt).getTime();
+      if (event.eventType === 'check_in' && activeStart === null) activeStart = timestamp;
+      if (event.eventType === 'check_out' && activeStart !== null) {
+        totalMs += Math.max(0, timestamp - activeStart);
+        completedSessions += 1;
+        activeStart = null;
+      }
+    });
+    if (activeStart !== null) totalMs += Math.max(0, Date.now() - activeStart);
+    return { totalMs, completedSessions, isActive: activeStart !== null };
+  })();
 
   const handleCopySecret = () => {
     navigator.clipboard.writeText(secretCode);
@@ -171,6 +215,42 @@ export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
           </div>
 
           {/* BẢN TÓM TẮT BÀN GIAO TRANG BỊ & TIỀN CỌC */}
+          <section className="rounded-2xl border border-cyan-200 bg-cyan-50/70 p-3.5 dark:border-cyan-900/60 dark:bg-cyan-950/20">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex gap-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-300 bg-cyan-100 text-cyan-700 dark:border-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300"><Activity className="h-4.5 w-4.5" /></span>
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100">Nhật ký & hiệu suất ca làm việc</h3>
+                  <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Mỗi lần vào/ra ca mới đều được lưu thành nhật ký Cloud riêng cho tài xế này.</p>
+                </div>
+              </div>
+              <span className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-bold ${workPerformance.isActive ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
+                {workPerformance.isActive ? 'Đang trong ca' : 'Không trong ca'}
+              </span>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="rounded-xl border border-cyan-200 bg-white/80 p-2.5 dark:border-cyan-900/50 dark:bg-slate-900/60"><Timer className="h-4 w-4 text-cyan-600 dark:text-cyan-300" /><p className="mt-1 text-sm font-black text-slate-900 dark:text-white">{formatWorkDuration(workPerformance.totalMs)}</p><p className="text-[10px] text-slate-500">tổng thời gian</p></div>
+              <div className="rounded-xl border border-emerald-200 bg-white/80 p-2.5 dark:border-emerald-900/50 dark:bg-slate-900/60"><CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-300" /><p className="mt-1 text-sm font-black text-slate-900 dark:text-white">{workPerformance.completedSessions}</p><p className="text-[10px] text-slate-500">ca hoàn tất</p></div>
+              <div className="rounded-xl border border-slate-200 bg-white/80 p-2.5 dark:border-slate-700 dark:bg-slate-900/60"><Activity className="h-4 w-4 text-slate-600 dark:text-slate-300" /><p className="mt-1 text-sm font-black text-slate-900 dark:text-white">{driverEvents.length}</p><p className="text-[10px] text-slate-500">mốc nhật ký</p></div>
+            </div>
+            {driverEvents.length > 0 ? (
+              <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
+                {driverEvents.slice(0, 30).map(event => (
+                  <div key={event.id} className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900/60">
+                    <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${event.eventType === 'check_in' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300' : event.eventType === 'check_out' ? 'bg-rose-500/15 text-rose-600 dark:text-rose-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300'}`}>
+                      {event.eventType === 'check_in' ? <LogIn className="h-3.5 w-3.5" /> : event.eventType === 'check_out' ? <LogOut className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                    </span>
+                    <div className="min-w-0 flex-1"><p className="text-xs font-bold text-slate-800 dark:text-slate-100">{attendanceEventLabel(event.eventType)} <span className="font-normal text-slate-400">· {event.status}</span></p><p className="mt-0.5 text-[10px] text-slate-500">{new Date(event.occurredAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}{event.standbyZones?.length ? ` · ${event.standbyZones.join(' · ')}` : ''}</p>{event.note && <p className="mt-1 text-[10px] text-slate-600 dark:text-slate-300">{event.note}</p>}</div>
+                  </div>
+                ))}
+              </div>
+            ) : driverAttendance.length > 0 ? (
+              <div className="mt-3 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-3 text-[11px] text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">Có {driverAttendance.length} bản điểm danh tổng đã tạo trước khi nhật ký chi tiết được bật. Các mốc vào/ra ca cũ không thể khôi phục chính xác; lần điểm danh tiếp theo sẽ hiển thị đầy đủ tại đây.</div>
+            ) : (
+              <div className="mt-3 rounded-xl border border-dashed border-slate-300 p-3 text-center text-[11px] text-slate-500 dark:border-slate-700 dark:text-slate-400">Chưa có lịch sử điểm danh cho tài xế này.</div>
+            )}
+          </section>
+
           <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center space-x-3">
               <div className="h-10 w-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-500 shrink-0">

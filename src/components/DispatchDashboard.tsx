@@ -66,8 +66,9 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
   const [isQuickCheckinOpen, setIsQuickCheckinOpen] = useState(false);
   const [selectedDriverForCheckin, setSelectedDriverForCheckin] = useState<Driver | null>(null);
   const [quickShift, setQuickShift] = useState<AttendanceShift>('');
-  const [quickStatus, setQuickStatus] = useState<DriverShiftStatus>('on_duty');
+  const [quickStatus, setQuickStatus] = useState<DriverShiftStatus | ''>('');
   const [quickZone, setQuickZone] = useState('');
+  const [quickCheckinError, setQuickCheckinError] = useState<string | null>(null);
   const activeShifts = useMemo(() => attendanceSettings.shifts.filter(item => item.isActive).sort((a, b) => a.order - b.order), [attendanceSettings]);
   const activeZones = useMemo(() => attendanceSettings.zones.filter(item => item.isActive).sort((a, b) => a.order - b.order), [attendanceSettings]);
   const [quickNote, setQuickNote] = useState('');
@@ -153,18 +154,28 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
       const candidate = stats.notCheckedInDrivers[0] || drivers[0] || null;
       setSelectedDriverForCheckin(candidate);
     }
+    setQuickShift('');
+    setQuickStatus('');
+    setQuickZone('');
     setQuickNote('');
+    setQuickCheckinError(null);
     setIsQuickCheckinOpen(true);
   };
 
   const handleConfirmQuickCheckin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDriverForCheckin) return;
+    if (!quickShift || !quickStatus || !quickZone.trim()) {
+      setQuickCheckinError('Bắt buộc chọn trạng thái, một khung giờ bận và ít nhất một trạm / khu vực trực.');
+      return;
+    }
+    setQuickCheckinError(null);
+    const selectedStatus: DriverShiftStatus = quickStatus;
 
     onAdminCheckInDriver(
       selectedDriverForCheckin,
-      quickShift || activeShifts[0]?.id || 'flexible',
-      quickStatus,
+      quickShift,
+      selectedStatus,
       quickZone,
       quickNote.trim() || undefined
     );
@@ -176,7 +187,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
     <div className="space-y-6">
 
       <LiveDriverMap statuses={liveDriverStatuses} canViewLocation={!readOnly} canViewRoute={!readOnly} />
-      {!readOnly && <AttendancePerformancePanel events={attendanceEvents} selectedDate={selectedDate} />}
+      {!readOnly && <AttendancePerformancePanel events={attendanceEvents} attendanceList={attendanceList} selectedDate={selectedDate} />}
       
       {/* Top Banner: Realtime Dispatch & Action Buttons */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
@@ -815,9 +826,10 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                 <label className="text-slate-300 font-semibold">Khung giờ bận ở công ty khác:</label>
                 <select
                   value={quickShift}
-                  onChange={(e) => setQuickShift(e.target.value as AttendanceShift)}
+                  onChange={(e) => { setQuickShift(e.target.value as AttendanceShift); setQuickCheckinError(null); }}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-hidden"
                 >
+                  <option value="">Chọn khung giờ bận *</option>
                   {activeShifts.map(item => <option key={item.id} value={item.id}>{item.name}{item.startTime && item.endTime ? ` (${item.startTime} - ${item.endTime})` : ''}</option>)}
                 </select>
               </div>
@@ -826,9 +838,10 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                 <label className="text-slate-300 font-semibold">Trạng thái:</label>
                 <select
                   value={quickStatus}
-                  onChange={(e) => setQuickStatus(e.target.value as DriverShiftStatus)}
+                  onChange={(e) => { setQuickStatus(e.target.value as DriverShiftStatus); setQuickCheckinError(null); }}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-hidden"
                 >
+                  <option value="">Chọn trạng thái ca *</option>
                   <option value="on_duty">🟢 Đang trực ca / Đang chạy</option>
                   <option value="standby">🔵 Chờ điều phối</option>
                   <option value="off_duty">⚪ Đã ra ca</option>
@@ -841,13 +854,15 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                 <input
                   type="text"
                   value={quickZone}
-                  onChange={(e) => setQuickZone(e.target.value)}
+                  onChange={(e) => { setQuickZone(e.target.value); setQuickCheckinError(null); }}
                   placeholder="Nhập một hoặc nhiều trạm, ngăn cách bằng dấu phẩy..."
                   list="attendance-zones"
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-hidden"
                 />
                 <datalist id="attendance-zones">{activeZones.map(zone => <option key={zone.id} value={zone.name} />)}</datalist>
               </div>
+
+              {quickCheckinError && <div role="alert" className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs font-semibold text-rose-200">{quickCheckinError}</div>}
 
               <div className="space-y-1">
                 <label className="text-slate-300 font-semibold">Ghi chú điều phối:</label>

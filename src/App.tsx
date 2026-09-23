@@ -1275,6 +1275,8 @@ export default function App() {
 
       <DriverDetailModal
         driver={selectedDriver}
+        attendanceList={attendanceList}
+        attendanceEvents={attendanceEvents}
         onClose={() => {
           setIsDetailModalOpen(false);
           setSelectedDriver(null);

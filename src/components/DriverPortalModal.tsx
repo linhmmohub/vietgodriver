@@ -83,9 +83,10 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
 
   // Form State for Attendance
   const [busyShifts, setBusyShifts] = useState<AttendanceShift[]>([]);
-  const [status, setStatus] = useState<DriverShiftStatus>('on_duty');
+  const [status, setStatus] = useState<DriverShiftStatus | ''>('');
   const [standbyZones, setStandbyZones] = useState<string[]>([]);
   const [customZone, setCustomZone] = useState('');
+  const [attendanceValidationError, setAttendanceValidationError] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [absenceStartTime, setAbsenceStartTime] = useState('');
   const [absenceEndTime, setAbsenceEndTime] = useState('');
@@ -291,20 +292,38 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
     e.preventDefault();
     if (!activeDriver) return;
 
-    const now = new Date().toISOString();
     const finalZones = Array.from(new Set([...standbyZones, ...(customZone.trim() ? [customZone.trim()] : [])]));
-    const selectedShift = selectedBusyShifts[0] || 'flexible';
+    if (!status) {
+      setAttendanceValidationError('Vui lòng chọn trạng thái ca trước khi xác nhận.');
+      return;
+    }
+    if (!selectedBusyShifts.length) {
+      setAttendanceValidationError('Vui lòng chọn ít nhất một khung giờ bận ở công ty khác.');
+      return;
+    }
+    if (!finalZones.length) {
+      setAttendanceValidationError('Vui lòng chọn hoặc nhập ít nhất một trạm / khu vực trực chính.');
+      return;
+    }
+    if (attendanceScope === 'weekly' && !weekDays.length) {
+      setAttendanceValidationError('Vui lòng chọn ít nhất một ngày trong tuần.');
+      return;
+    }
+    setAttendanceValidationError(null);
+    const selectedStatus: DriverShiftStatus = status;
+    const now = new Date().toISOString();
+    const selectedShift = selectedBusyShifts[0];
     const buildRecord = (date: string, weekly = false): Omit<DriverAttendance, 'id' | 'updatedAt'> => ({
       driverId: activeDriver.id, driverCode: activeDriver.code, driverName: activeDriver.name,
       driverPhone: activeDriver.phone, licensePlate: activeDriver.licensePlate,
-      workingType: activeDriver.workingType || 'fulltime', date, shift: selectedShift, busyShiftIds: selectedBusyShifts, status,
-      checkInTime: date === todayStr && (status === 'on_duty' || status === 'standby')
+      workingType: activeDriver.workingType || 'fulltime', date, shift: selectedShift, busyShiftIds: selectedBusyShifts, status: selectedStatus,
+      checkInTime: date === todayStr && (selectedStatus === 'on_duty' || selectedStatus === 'standby')
         ? ((driverTodayAttendance?.status === 'on_duty' || driverTodayAttendance?.status === 'standby') ? driverTodayAttendance.checkInTime || now : now)
         : undefined,
-      checkOutTime: date === todayStr && status === 'off_duty' ? now : undefined,
+      checkOutTime: date === todayStr && selectedStatus === 'off_duty' ? now : undefined,
       note: note.trim() || undefined, standbyZone: finalZones[0], standbyZones: finalZones,
-      absenceStartTime: status === 'emergency_leave' ? absenceStartTime || undefined : undefined,
-      absenceEndTime: status === 'emergency_leave' ? absenceEndTime || undefined : undefined,
+      absenceStartTime: selectedStatus === 'emergency_leave' ? absenceStartTime || undefined : undefined,
+      absenceEndTime: selectedStatus === 'emergency_leave' ? absenceEndTime || undefined : undefined,
       scheduleScope: weekly ? 'weekly' : 'daily',
     });
     let records: Array<Omit<DriverAttendance, 'id' | 'updatedAt'>>;
@@ -323,15 +342,15 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
     }
     if (!records.length) return;
     await onSubmitAttendance(records);
-    if (status === 'off_duty' || status === 'emergency_leave') await handleStopLocationSharing();
+    if (selectedStatus === 'off_duty' || selectedStatus === 'emergency_leave') await handleStopLocationSharing();
     setSubmittedMessage(
       attendanceScope === 'weekly'
         ? `✅ Đã đăng ký ${records.length} ngày trong tuần. Bạn vẫn có thể cập nhật từng ngày khi lịch thay đổi.`
-        : status === 'on_duty' 
+        : selectedStatus === 'on_duty'
         ? '✅ Điểm danh VÀO CA thành công! Dữ liệu đã đồng bộ tức thì lên bảng điều phối.' 
-        : status === 'off_duty' 
+        : selectedStatus === 'off_duty'
           ? '🏁 Đã báo cáo RA CA thành công. Chúc bạn nghỉ ngơi an toàn!' 
-          : status === 'emergency_leave' 
+          : selectedStatus === 'emergency_leave'
             ? '⚠️ Đã gửi Báo cáo NGHỈ ĐỘT XUẤT tới đội ngũ điều phối.'
             : '✅ Đã cập nhật trạng thái làm việc thành công!'
     );
@@ -622,6 +641,12 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
                 </div>
               )}
 
+              {attendanceValidationError && (
+                <div role="alert" className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs font-semibold text-rose-200">
+                  {attendanceValidationError}
+                </div>
+              )}
+
               {/* Daily / weekly attendance scope */}
               <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700 space-y-3">
                 <div className="flex items-center justify-between gap-3"><div><div className="text-xs font-bold text-white">Cách điểm danh</div><div className="text-[11px] text-slate-400">Giày da có thể đăng ký lịch một lần cho cả tuần.</div></div><div className="inline-flex rounded-xl bg-slate-900 p-1 border border-slate-700"><button type="button" onClick={() => setAttendanceScope('daily')} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${attendanceScope === 'daily' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400'}`}>Hôm nay</button><button type="button" onClick={() => setAttendanceScope('weekly')} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${attendanceScope === 'weekly' ? 'bg-amber-400 text-slate-950' : 'text-slate-400'}`}>Theo tuần</button></div></div>
@@ -637,7 +662,7 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <button
                     type="button"
-                    onClick={() => setStatus('on_duty')}
+                    onClick={() => { setStatus('on_duty'); setAttendanceValidationError(null); }}
                     className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between space-y-1.5 ${
                       status === 'on_duty'
                         ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/30 shadow-md'
@@ -653,7 +678,7 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => setStatus('standby')}
+                    onClick={() => { setStatus('standby'); setAttendanceValidationError(null); }}
                     className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between space-y-1.5 ${
                       status === 'standby'
                         ? 'bg-blue-500/20 border-blue-500 text-blue-300 ring-2 ring-blue-500/30 shadow-md'
@@ -669,7 +694,7 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => setStatus('emergency_leave')}
+                    onClick={() => { setStatus('emergency_leave'); setAttendanceValidationError(null); }}
                     className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between space-y-1.5 ${
                       status === 'emergency_leave'
                         ? 'bg-rose-500/20 border-rose-500 text-rose-300 ring-2 ring-rose-500/30 shadow-md'
@@ -685,7 +710,7 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => setStatus('off_duty')}
+                    onClick={() => { setStatus('off_duty'); setAttendanceValidationError(null); }}
                     className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between space-y-1.5 ${
                       status === 'off_duty'
                         ? 'bg-slate-700 border-slate-500 text-slate-200 ring-2 ring-slate-500/30 shadow-md'
@@ -705,14 +730,14 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                   <Clock className="w-4 h-4 text-amber-400" />
-                  Khung giờ bạn bận ở công ty khác <span className="text-[10px] font-normal text-slate-400">(chọn nhiều nếu có)</span>
+                  Khung giờ bạn bận ở công ty khác <span className="text-[10px] font-normal text-rose-300">(bắt buộc chọn ít nhất 1)</span>
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {activeShifts.map((item) => (
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => setBusyShifts(previous => previous.includes(item.id) ? previous.filter(value => value !== item.id) : [...previous, item.id])}
+                      onClick={() => { setBusyShifts(previous => previous.includes(item.id) ? previous.filter(value => value !== item.id) : [...previous, item.id]); setAttendanceValidationError(null); }}
                       className={`p-2.5 rounded-xl border text-left transition ${
                         busyShifts.includes(item.id)
                           ? 'bg-amber-500/20 border-amber-500 text-white shadow-xs'
@@ -731,7 +756,7 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                   <MapPin className="w-4 h-4 text-amber-400" />
-                  Trạm / Khu vực trực chính <span className="text-[10px] font-normal text-slate-400">(chọn nhiều nếu có)</span>
+                  Trạm / Khu vực trực chính <span className="text-[10px] font-normal text-rose-300">(bắt buộc chọn ít nhất 1)</span>
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                   {activeZones.map((zone) => (
@@ -741,6 +766,7 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
                       onClick={() => {
                         setStandbyZones(previous => previous.includes(zone.name) ? previous.filter(value => value !== zone.name) : [...previous, zone.name]);
                         setCustomZone('');
+                        setAttendanceValidationError(null);
                       }}
                       className={`p-2 rounded-xl border text-xs font-medium text-left truncate transition ${
                         standbyZones.includes(zone.name) && !customZone
@@ -756,7 +782,7 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
                 <input
                   type="text"
                   value={customZone}
-                  onChange={(e) => setCustomZone(e.target.value)}
+                  onChange={(e) => { setCustomZone(e.target.value); setAttendanceValidationError(null); }}
                   placeholder="Hoặc gõ vị trí trạm cụ thể khác..."
                   className="w-full px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
                 />
