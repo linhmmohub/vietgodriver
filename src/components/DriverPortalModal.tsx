@@ -837,7 +837,7 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
               </div>
 
               {/* Submit Attendance Record */}
-              <div className="pt-2">
+              <div className="mobile-sticky-action pt-2">
                 <button
                   type="submit"
                   className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-sm shadow-xl flex items-center justify-center space-x-2 transition active:scale-98 cursor-pointer"

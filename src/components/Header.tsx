@@ -86,7 +86,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <div className="leading-tight">
                 <div className="flex items-center gap-2">
-                  <h1 className="max-w-[132px] truncate text-sm font-extrabold tracking-tight text-slate-100 sm:max-w-none">VietGo Driver Ops</h1>
+                  <h1 className="hidden max-w-[132px] truncate text-sm font-extrabold tracking-tight text-slate-100 md:block md:max-w-none">VietGo Driver Ops</h1>
                   {isSuperAdmin ? (
                     <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-300">Admin</span>
                   ) : isOperationsManager ? (
@@ -184,8 +184,16 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             <div className="flex md:hidden items-center space-x-1.5">
-              {canManageDriverOperations && <button onClick={onOpenDriverModal} className="px-2.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 text-[11px] font-bold flex items-center gap-1 active:scale-95 transition" title="Thêm tài xế mới"><Plus className="w-3.5 h-3.5 stroke-[3]" /><span>Cấp TX</span></button>}
-              <button id="btn-mobile-menu-toggle" onClick={() => setIsMobileDrawerOpen(true)} className="p-2 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition flex items-center justify-center" aria-label="Mở menu quản lý"><Menu className="w-5 h-5" /></button>
+              <button
+                id="btn-mobile-attendance"
+                onClick={() => setActiveTab('attendance')}
+                className={`min-h-10 rounded-xl px-2.5 text-[11px] font-black transition active:scale-95 ${activeTab === 'attendance' ? 'bg-emerald-400 text-slate-950' : 'border border-emerald-400/35 bg-emerald-400/10 text-emerald-200'}`}
+                title="Mở điểm danh"
+              >
+                <span className="flex items-center gap-1"><Radio className="h-3.5 w-3.5" />Điểm danh</span>
+              </button>
+              {canManageDriverOperations && <button onClick={onOpenDriverModal} className="hidden rounded-xl bg-amber-500 px-2.5 py-1.5 text-[11px] font-bold text-slate-950 transition active:scale-95 sm:flex sm:items-center sm:gap-1" title="Thêm tài xế mới"><Plus className="w-3.5 h-3.5 stroke-[3]" /><span>Cấp TX</span></button>}
+              <button id="btn-mobile-menu-toggle" onClick={() => setIsMobileDrawerOpen(true)} className="min-h-10 min-w-10 p-2 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition flex items-center justify-center" aria-label="Mở menu quản lý"><Menu className="w-5 h-5" /></button>
             </div>
           </div>
         </div>

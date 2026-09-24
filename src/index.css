@@ -60,6 +60,10 @@ button, a, input, select, textarea {
     min-width: 0;
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   /* iOS zooms when a form control uses a font under 16px. */
   input, select, textarea {
     font-size: 16px !important;
@@ -86,5 +90,30 @@ button, a, input, select, textarea {
 
   .mobile-safe-bottom {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  /* Keep the most important phone actions in thumb reach while a long form scrolls. */
+  .mobile-sticky-action {
+    position: sticky;
+    bottom: -1rem;
+    z-index: 10;
+    margin-top: 0.25rem;
+    padding: 0.75rem 0 max(0.75rem, env(safe-area-inset-bottom));
+    background: linear-gradient(to bottom, rgb(15 23 42 / 0), rgb(15 23 42) 30%);
+  }
+
+  .mobile-dispatch-actions {
+    position: sticky;
+    top: 4.75rem;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border: 1px solid rgb(51 65 85 / 0.9);
+    border-radius: 1rem;
+    background: rgb(15 23 42 / 0.96);
+    box-shadow: 0 12px 28px rgb(2 6 23 / 0.3);
+    backdrop-filter: blur(12px);
   }
 }

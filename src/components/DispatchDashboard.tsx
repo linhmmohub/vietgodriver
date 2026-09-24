@@ -233,6 +233,27 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
   return (
     <div className="space-y-6">
 
+      {!readOnly && (
+        <div className="mobile-dispatch-actions sm:hidden">
+          <button
+            type="button"
+            onClick={onOpenDriverPortal}
+            className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-3 py-2 text-xs font-black text-slate-950 transition active:scale-[0.98]"
+          >
+            <UserCheck className="h-4 w-4 stroke-[2.5]" />
+            Cổng tài xế
+          </button>
+          <button
+            type="button"
+            onClick={() => handleOpenQuickCheckin()}
+            className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-emerald-400/35 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-200 transition active:scale-[0.98]"
+          >
+            <UserPlus className="h-4 w-4" />
+            Điểm danh hộ
+          </button>
+        </div>
+      )}
+
       <LiveDriverMap statuses={liveDriverStatuses} canViewLocation={!readOnly} canViewRoute={!readOnly} />
       {!readOnly && <AttendancePerformancePanel events={attendanceEvents} attendanceList={attendanceList} selectedDate={selectedDate} />}
       {readOnly && (

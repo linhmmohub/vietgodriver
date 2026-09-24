@@ -169,7 +169,7 @@ export const LiveDriverMap: React.FC<LiveDriverMapProps> = ({ statuses, canViewL
         <div className="mt-4 rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-6 text-center text-sm text-slate-400"><MapPin className="mx-auto mb-2 h-6 w-6 text-slate-500" />Chưa có tài xế chia sẻ vị trí. Tài xế cần đăng nhập, điểm danh và bấm “Bật chia sẻ vị trí”.</div>
       ) : (
         <div className={`mt-4 grid gap-4 ${compact ? '' : 'xl:grid-cols-[minmax(0,1fr)_280px]'}`}>
-          <div className={`relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 ${compact ? 'h-[250px]' : 'h-[340px]'}`}>
+          <div className={`relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 ${compact ? 'h-[220px] sm:h-[250px]' : 'h-[250px] sm:h-[340px]'}`}>
             <div className="absolute left-3 top-3 z-[500] inline-flex rounded-xl border border-slate-600 bg-slate-950/90 p-1 shadow-lg backdrop-blur">
               <button type="button" onClick={() => setMapPresentation('place')} className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${mapPresentation === 'place' ? 'bg-emerald-400 text-slate-950' : 'text-slate-300'}`}>Địa điểm</button>
               <button type="button" onClick={() => { setTilesUnavailable(false); setMapPresentation('fleet'); }} className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${mapPresentation === 'fleet' ? 'bg-amber-400 text-slate-950' : 'text-slate-300'}`}>Đội xe</button>
@@ -190,7 +190,7 @@ export const LiveDriverMap: React.FC<LiveDriverMapProps> = ({ statuses, canViewL
             )}
             {mapPresentation === 'place' && focusedDriver && <div className="absolute bottom-3 left-3 z-[500] rounded-lg bg-slate-950/90 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-lg backdrop-blur"><MapPin className="mr-1 inline h-3.5 w-3.5 text-rose-400" />{focusedDriver.driverName} · vị trí hiện tại</div>}
           </div>
-          <div className={`${compact ? 'max-h-56' : 'max-h-[340px]'} space-y-2 overflow-y-auto pr-1`}>
+          <div className={`${compact ? 'max-h-52 sm:max-h-56' : 'max-h-[220px] sm:max-h-[340px]'} space-y-2 overflow-y-auto pr-1`}>
             {liveStatuses.map(status => (
               <div key={status.driverId} className={`w-full rounded-xl border bg-slate-800 p-3 text-left ${canViewRoute && selectedRouteDriverId === status.driverId ? 'border-amber-400/70' : 'border-slate-700'}`}>
                 <div className="flex items-start justify-between gap-2"><div><p className="font-bold text-white">{status.driverName}</p><p className="text-[11px] text-slate-400">{status.driverCode}{status.licensePlate ? ` · ${status.licensePlate}` : ''}</p></div><span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_#4ade80]" /></div>
