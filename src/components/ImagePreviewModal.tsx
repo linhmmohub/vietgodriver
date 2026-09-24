@@ -25,11 +25,11 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-150"
+      className="mobile-modal-frame fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div 
-        className="relative max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+        className="mobile-sheet relative w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -53,7 +53,7 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
         </div>
 
         {/* Image body */}
-        <div className="p-2 overflow-auto flex items-center justify-center bg-slate-950">
+        <div className="mobile-modal-content flex-1 overflow-auto p-2 flex items-center justify-center bg-slate-950">
           <img
             src={imageUrl}
             alt={title}

@@ -757,22 +757,22 @@ export const CategoryManagementView: React.FC<CategoryManagementViewProps> = ({
       {/* MODAL: ADD / EDIT EQUIPMENT CATEGORY */}
       {/* ======================================================== */}
       {isEquipModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <div className="mobile-modal-frame fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
+          <div className="mobile-sheet bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95">
+            <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+              <h3 className="min-w-0 text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <Boxes className="w-4 h-4 text-amber-500" />
                 {editingEquip ? 'Chỉnh Sửa Trang Bị / Mức Cọc' : 'Thêm Trang Bị / Đồng Phục Mới'}
               </h3>
               <button
                 onClick={() => setIsEquipModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="min-h-11 min-w-11 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEquipSubmit} className="p-5 space-y-4">
+            <form onSubmit={handleSaveEquipSubmit} className="p-4 sm:p-5 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1 sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -914,22 +914,22 @@ export const CategoryManagementView: React.FC<CategoryManagementViewProps> = ({
       {/* MODAL: ADD / EDIT EXPENSE CATEGORY */}
       {/* ======================================================== */}
       {isExpModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+        <div className="mobile-modal-frame fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
+          <div className="mobile-sheet bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95">
+            <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+              <h3 className="min-w-0 text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-emerald-500" />
                 {editingExp ? 'Chỉnh Sửa Danh Mục Chi' : 'Thêm Danh Mục Chi Tiêu Mới'}
               </h3>
               <button
                 onClick={() => setIsExpModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="min-h-11 min-w-11 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveExpSubmit} className="p-5 space-y-4">
+            <form onSubmit={handleSaveExpSubmit} className="p-4 sm:p-5 space-y-4">
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                   Tên phân loại chi phí <span className="text-rose-500">*</span>

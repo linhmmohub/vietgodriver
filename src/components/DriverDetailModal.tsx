@@ -151,27 +151,28 @@ export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
       >
         
         {/* Header Modal */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 print:hidden">
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 print:hidden">
+          <div className="flex min-w-0 items-center space-x-2">
+            <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Hồ Sơ Cấp Phát & Tiền Cọc
             </span>
-            <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 font-mono text-xs font-bold">
+            <span className="sm:hidden text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Hồ sơ TX</span>
+            <span className="shrink-0 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 font-mono text-xs font-bold">
               {driver.code}
             </span>
           </div>
-          <div className="flex items-center space-x-1.5">
+          <div className="flex shrink-0 items-center space-x-1.5">
             <button
               onClick={handlePrint}
               title="In phiếu này"
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition text-xs flex items-center gap-1"
+              className="min-h-11 min-w-11 p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition text-xs flex items-center gap-1"
             >
               <Printer className="w-4 h-4" />
               <span className="hidden sm:inline font-medium">In phiếu</span>
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition"
+              className="min-h-11 min-w-11 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition"
             >
               <X className="w-5 h-5" />
             </button>
@@ -179,7 +180,7 @@ export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs sm:text-sm">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs sm:text-sm">
           
           {/* Driver Title Card */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-slate-800 pb-4 gap-3">

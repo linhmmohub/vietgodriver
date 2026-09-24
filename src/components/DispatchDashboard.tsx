@@ -81,6 +81,8 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [directoryStatusFilter, setDirectoryStatusFilter] = useState<'all' | DriverShiftStatus | 'not_checked_in'>('all');
+  const [directorySort, setDirectorySort] = useState<'priority' | 'name_asc' | 'name_desc' | 'last_update'>('priority');
   
   // Quick checkin modal state
   const [isQuickCheckinOpen, setIsQuickCheckinOpen] = useState(false);
@@ -150,14 +152,23 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
   const dispatchDirectory = useMemo(() => {
     const attendanceByDriver = new Map(dateAttendanceList.map(item => [item.driverId, item]));
     const normalizedSearch = searchQuery.trim().toLowerCase();
+    const statusOf = (attendance?: DriverAttendance) => attendance?.status || 'not_checked_in';
+    const priorityOf = (status: DriverShiftStatus | 'not_checked_in') => status === 'on_duty' ? 0 : status === 'standby' ? 1 : status === 'emergency_leave' ? 2 : status === 'off_duty' ? 3 : 4;
+
     return [...drivers]
       .map(driver => ({ driver, attendance: attendanceByDriver.get(driver.id) }))
-      .filter(({ driver }) => !normalizedSearch || [driver.name, driver.code, driver.phone, driver.licensePlate || ''].some(value => value.toLowerCase().includes(normalizedSearch)))
+      .filter(({ driver, attendance }) => {
+        const matchesSearch = !normalizedSearch || [driver.name, driver.code, driver.phone, driver.licensePlate || ''].some(value => value.toLowerCase().includes(normalizedSearch));
+        const matchesStatus = directoryStatusFilter === 'all' || statusOf(attendance) === directoryStatusFilter;
+        return matchesSearch && matchesStatus;
+      })
       .sort((a, b) => {
-        const priority = (status?: DriverShiftStatus) => status === 'on_duty' ? 0 : status === 'standby' ? 1 : status === 'emergency_leave' ? 2 : status === 'off_duty' ? 3 : 4;
-        return priority(a.attendance?.status) - priority(b.attendance?.status) || a.driver.name.localeCompare(b.driver.name, 'vi');
+        if (directorySort === 'name_asc') return a.driver.name.localeCompare(b.driver.name, 'vi');
+        if (directorySort === 'name_desc') return b.driver.name.localeCompare(a.driver.name, 'vi');
+        if (directorySort === 'last_update') return (b.attendance?.updatedAt || '').localeCompare(a.attendance?.updatedAt || '') || a.driver.name.localeCompare(b.driver.name, 'vi');
+        return priorityOf(statusOf(a.attendance)) - priorityOf(statusOf(b.attendance)) || a.driver.name.localeCompare(b.driver.name, 'vi');
       });
-  }, [dateAttendanceList, drivers, searchQuery]);
+  }, [dateAttendanceList, directorySort, directoryStatusFilter, drivers, searchQuery]);
 
   const emergencyDetails = useMemo(() => dateAttendanceList
     .filter(item => item.status === 'emergency_leave')
@@ -259,11 +270,40 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
       {readOnly && (
         <section className="rounded-3xl border border-sky-500/25 bg-slate-900 p-4 shadow-xl sm:p-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-sky-400/30 bg-sky-500/10 text-sky-300"><Users className="h-4.5 w-4.5" /></span><div><h3 className="font-black text-white">Danh bạ điều phối tài xế</h3><p className="text-[11px] text-slate-400">Toàn bộ tài xế và số điện thoại gọi nhanh. Quyền cấp 3 chỉ được xem, không thể sửa hoặc xóa.</p></div></div><span className="w-fit rounded-full border border-sky-400/25 bg-sky-500/10 px-2.5 py-1 text-xs font-bold text-sky-200">{dispatchDirectory.length}/{drivers.length} tài xế</span></div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{dispatchDirectory.map(({ driver, attendance }) => {
+                    <div className="mt-3 space-y-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <label className="relative block min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={event => setSearchQuery(event.target.value)}
+                  placeholder="Tìm tên, mã TX, SĐT hoặc biển số"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950/70 py-2 pl-9 pr-9 text-xs text-white placeholder:text-slate-500 focus:border-sky-400 focus:outline-none"
+                />
+                {searchQuery && <button type="button" onClick={() => setSearchQuery('')} className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white" aria-label="Xóa tìm kiếm"><X className="h-4 w-4" /></button>}
+              </label>
+              <select value={directorySort} onChange={event => setDirectorySort(event.target.value as typeof directorySort)} className="min-h-11 rounded-xl border border-slate-700 bg-slate-950/70 px-3 text-xs font-semibold text-slate-200 focus:border-sky-400 focus:outline-none">
+                <option value="priority">Ưu tiên đang trực</option>
+                <option value="name_asc">Tên A–Z</option>
+                <option value="name_desc">Tên Z–A</option>
+                <option value="last_update">Cập nhật gần nhất</option>
+              </select>
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar" aria-label="Lọc nhanh danh bạ">
+              {([
+                ['all', 'Tất cả'],
+                ['on_duty', 'Đang chạy'],
+                ['standby', 'Chờ điều phối'],
+                ['emergency_leave', 'Nghỉ đột xuất'],
+                ['not_checked_in', 'Chưa điểm danh'],
+              ] as const).map(([value, label]) => <button key={value} type="button" onClick={() => setDirectoryStatusFilter(value)} className={`min-h-10 shrink-0 whitespace-nowrap rounded-xl border px-3 text-[11px] font-bold transition ${directoryStatusFilter === value ? 'border-sky-400 bg-sky-500 text-slate-950' : 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>{label}</button>)}
+            </div>
+          </div>          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{dispatchDirectory.map(({ driver, attendance }) => {
             const statusText = attendance ? eventStatusLabel(attendance.status) : 'Chưa điểm danh';
             const statusTheme = attendance?.status === 'on_duty' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : attendance?.status === 'standby' ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-200' : attendance?.status === 'emergency_leave' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : 'border-slate-700 bg-slate-800 text-slate-300';
             const zones = attendance?.standbyZones?.length ? attendance.standbyZones.join(' · ') : attendance?.standbyZone || 'Chưa có trạm trực';
-            return <article key={driver.id} className="rounded-2xl border border-slate-700 bg-slate-800/75 p-3"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-bold text-white"><span className="mr-1.5 font-mono text-amber-300">{driver.code}</span>{driver.name}</p><p className="mt-0.5 text-[10px] text-slate-400">{driver.licensePlate || 'Chưa cập nhật biển số'} · {driver.workingType === 'parttime' ? 'Part-time' : 'Full-time'}</p></div><span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold ${statusTheme}`}>{statusText}</span></div><p className="mt-2 truncate text-[11px] text-slate-400"><MapPin className="mr-1 inline h-3.5 w-3.5" />{zones}</p><a href={`tel:${driver.phone}`} className="mt-3 flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-bold text-sky-200 transition hover:bg-sky-500/20"><Phone className="h-3.5 w-3.5" />Gọi {driver.phone}</a></article>;
+            return <article key={driver.id} className="min-w-0 overflow-hidden rounded-2xl border border-slate-700 bg-slate-800/75 p-3"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-bold text-white"><span className="mr-1.5 font-mono text-amber-300">{driver.code}</span>{driver.name}</p><p className="mt-0.5 text-[10px] text-slate-400">{driver.licensePlate || 'Chưa cập nhật biển số'} · {driver.workingType === 'parttime' ? 'Part-time' : 'Full-time'}</p></div><span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold ${statusTheme}`}>{statusText}</span></div><p className="mt-2 truncate text-[11px] text-slate-400"><MapPin className="mr-1 inline h-3.5 w-3.5" />{zones}</p><a href={`tel:${driver.phone}`} className="mt-3 flex min-h-10 min-w-0 max-w-full items-center justify-center gap-1.5 rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-bold text-sky-200 transition hover:bg-sky-500/20"><Phone className="h-3.5 w-3.5 shrink-0" /><span className="min-w-0 truncate">Gọi {driver.phone}</span></a></article>;
           })}</div>
           {dispatchDirectory.length === 0 && <p className="mt-4 rounded-xl border border-dashed border-slate-700 p-4 text-center text-xs text-slate-400">Không có tài xế khớp từ khóa tìm kiếm.</p>}
         </section>
@@ -435,12 +475,12 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
       {/* Filter and Search Bar */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-lg">
         
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
           {/* Filter Status */}
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-hidden focus:border-amber-400"
+            className="w-full sm:w-auto px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-hidden focus:border-amber-400"
           >
             <option value="all">Tất cả trạng thái ca ({dateAttendanceList.length})</option>
             <option value="on_duty">🟢 Đang chạy ca ({stats.onDutyCount})</option>
@@ -453,7 +493,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
           <select
             value={filterShift}
             onChange={(e) => setFilterShift(e.target.value)}
-            className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-hidden focus:border-amber-400"
+            className="w-full sm:w-auto px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-hidden focus:border-amber-400"
           >
             <option value="all">Tất cả khung giờ ca</option>
             {activeShifts.map(item => <option key={item.id} value={item.id}>{item.name}{item.startTime && item.endTime ? ` (${item.startTime} - ${item.endTime})` : ''}</option>)}
@@ -463,7 +503,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-hidden focus:border-amber-400"
+            className="w-full sm:w-auto px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-hidden focus:border-amber-400"
           >
             <option value="all">Fulltime & Parttime</option>
             <option value="fulltime">Chỉ Full-time</option>
@@ -487,10 +527,10 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
 
       {/* Main Table: Driver Attendance List */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
-        <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+        <div className="px-4 sm:px-5 py-4 border-b border-slate-800 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center space-x-2">
             <Activity className="w-4 h-4 text-amber-400" />
-            <h3 className="text-sm font-bold text-white">
+            <h3 className="min-w-0 text-sm font-bold leading-snug text-white">
               Bảng Theo Dõi Điều Phối Ngày {new Date(selectedDate).toLocaleDateString('vi-VN')}
             </h3>
             <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-mono">
@@ -535,13 +575,13 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
                   >
                     {/* Top Row: Driver & Status */}
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center space-x-2.5">
+                      <div className="flex min-w-0 items-center space-x-2.5">
                         <div className="h-9 w-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-amber-400 font-mono shrink-0">
                           {item.driverCode}
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <div className="font-bold text-white text-sm flex items-center gap-1.5 flex-wrap">
-                            <span>{item.driverName}</span>
+                            <span className="break-words">{item.driverName}</span>
                             {item.licensePlate && (
                               <span className="text-[10px] text-slate-400 font-mono bg-slate-800 px-1.5 py-0.5 rounded-sm">
                                 {item.licensePlate}
@@ -886,7 +926,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
               <div className="flex gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-rose-400/30 bg-rose-500/15 text-rose-300"><AlertTriangle className="h-5 w-5" /></span><div><h3 className="font-black text-white">Chi tiết nghỉ đột xuất</h3><p className="mt-0.5 text-xs text-slate-400">{selectedDate} · {emergencyDetails.length} tài xế cần theo dõi</p></div></div>
               <button type="button" onClick={() => setIsEmergencyDetailsOpen(false)} className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white" aria-label="Đóng"><X className="h-5 w-5" /></button>
             </div>
-            <div className="max-h-[calc(92vh-80px)] space-y-3 overflow-y-auto p-4 sm:p-5">
+            <div className="mobile-modal-content max-h-[calc(92vh-80px)] overflow-y-auto space-y-3 p-4 sm:p-5">
               {emergencyDetails.length === 0 ? <p className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-400">Không có tài xế nghỉ đột xuất trong ngày này.</p> : emergencyDetails.map(({ attendance, timeline, leaveAt, checkInEvent, workedMs }) => {
                 const busyInfo = shiftInfo(attendance.busyShiftIds?.length ? attendance.busyShiftIds : attendance.shift, attendanceSettings);
                 const zones = attendance.standbyZones?.length ? attendance.standbyZones.join(' · ') : attendance.standbyZone || 'Chưa ghi';
@@ -904,8 +944,8 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
 
       {/* Quick Check-in Modal for Admin */}
       {isQuickCheckinOpen && selectedDriverForCheckin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl text-slate-100">
+        <div className="mobile-modal-frame fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="mobile-sheet bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl text-slate-100">
             <h3 className="text-base font-bold text-white flex items-center gap-2 mb-4">
               <UserCheck className="w-5 h-5 text-amber-400" />
               Điểm Danh Hộ: {selectedDriverForCheckin.name} ({selectedDriverForCheckin.code})

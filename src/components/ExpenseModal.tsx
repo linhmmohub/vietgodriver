@@ -128,23 +128,23 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       >
         
         {/* Header Modal */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-          <div className="flex items-center space-x-2.5">
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+          <div className="flex min-w-0 items-center space-x-2.5">
             <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
               <Receipt className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 break-words">
                 {expenseToEdit ? 'Chỉnh sửa khoản chi' : 'Ghi nhận khoản chi tiêu nội bộ mới'}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
                 Note chi phí mua đồng phục, hoàn tiền, đính kèm ảnh bill chuyển khoản
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition"
+            className="min-h-11 min-w-11 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition"
           >
             <X className="w-5 h-5" />
           </button>

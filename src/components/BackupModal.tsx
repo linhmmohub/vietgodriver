@@ -102,30 +102,30 @@ export const BackupModal: React.FC<BackupModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-          <div className="flex items-center space-x-2.5">
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+          <div className="flex min-w-0 items-center space-x-2.5">
             <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
               <Database className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 Sao Lưu & Khôi Phục Dữ Liệu
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
                 Dữ liệu lưu an toàn trên trình duyệt, có thể xuất tệp khi đẩy lên Vercel
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition"
+            className="min-h-11 min-w-11 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-4 text-xs">
+        <div className="mobile-modal-content p-4 sm:p-6 space-y-4 text-xs">
           
           {statusMsg && (
             <div className={`p-3 rounded-lg border flex items-center text-xs ${
@@ -195,7 +195,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
             </button>
           </div>
 
-          <div className="pt-2 flex justify-between items-center text-[11px] text-slate-400">
+          <div className="pt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between sm:items-center text-[11px] text-slate-400">
             <button
               onClick={handleResetSample}
               className="inline-flex items-center text-amber-600 dark:text-amber-400 hover:underline"

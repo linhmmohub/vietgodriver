@@ -153,30 +153,30 @@ export const UniformInventoryView: React.FC<UniformInventoryViewProps> = ({
     <div className="space-y-5 animate-in fade-in duration-200">
       
       {/* Top Banner: Thống kê tổng kho */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 text-white rounded-3xl p-5 sm:p-7 border border-slate-800 shadow-xl">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 text-white rounded-3xl p-4 sm:p-7 border border-slate-800 shadow-xl">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center space-x-3.5">
+          <div className="flex min-w-0 items-start gap-3.5">
             <div className="h-12 w-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
               <Boxes className="w-6 h-6" />
             </div>
-            <div>
-              <h2 className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2">
+            <div className="min-w-0">
+              <h2 className="text-base leading-snug sm:text-xl font-black tracking-tight text-white">
                 <span>Quản Lý Kho & Cấp Phát Trang Bị</span>
-                <span className="text-[11px] bg-amber-500/20 text-amber-300 font-bold px-2.5 py-0.5 rounded-full border border-amber-500/30">
+              </h2>
+                <span className="mt-1 inline-flex max-w-full rounded-full border border-amber-500/30 bg-amber-500/20 px-2.5 py-0.5 text-[11px] font-bold text-amber-300">
                   Áo • Mũ • Thùng hàng
                 </span>
-              </h2>
               <p className="text-xs sm:text-sm text-slate-300 mt-0.5">
                 Kiểm soát số lượng Áo, Mũ bảo hiểm, Thùng đựng hàng đã phát và đã thu hồi về kho
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
             {onOpenNewExpense && (
               <button
                 onClick={onOpenNewExpense}
-                className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md transition flex items-center gap-1.5 active:scale-95"
+                className="min-h-11 justify-center px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md transition flex items-center gap-1.5 active:scale-95"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
                 <span>+ Ghi Mua Trang Bị Mới</span>
@@ -185,7 +185,7 @@ export const UniformInventoryView: React.FC<UniformInventoryViewProps> = ({
             {onOpenNewDriver && (
               <button
                 onClick={onOpenNewDriver}
-                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition flex items-center gap-1.5 active:scale-95"
+                className="min-h-11 justify-center px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition flex items-center gap-1.5 active:scale-95"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
                 <span>+ Cấp Mới Cho Tài Xế</span>
@@ -411,8 +411,39 @@ export const UniformInventoryView: React.FC<UniformInventoryViewProps> = ({
           </div>
         </div>
 
-        {/* Table View */}
-        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+        {/* Mobile cards: each driver can be scanned and opened without horizontal table scrolling. */}
+        <div className="space-y-2 md:hidden">
+          {filteredDriverList.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-5 text-center text-xs text-slate-400">Không tìm thấy tài xế phù hợp với bộ lọc hiện tại.</p>
+          ) : filteredDriverList.map((driver) => {
+            const isRevoked = driver.isRevoked;
+            const hasHelmet = driver.hasHelmet && !driver.revokedHelmet;
+            const hasShirt = driver.hasShirt && !driver.revokedShirt;
+            const hasBox = driver.hasDeliveryBox !== false && !driver.revokedBox;
+            return (
+              <button
+                type="button"
+                key={driver.id}
+                onClick={() => onSelectDriver(driver)}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition active:scale-[0.99] dark:border-slate-700 dark:bg-slate-800/60"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0"><p className="truncate text-sm font-black text-slate-900 dark:text-white"><span className="mr-1.5 font-mono text-amber-600 dark:text-amber-400">{driver.code}</span>{driver.name}</p><p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{driver.phone}{driver.licensePlate ? ` · ${driver.licensePlate}` : ''}</p></div>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${isRevoked ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' : driver.approvalStatus === 'pending' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'}`}>{isRevoked ? 'Đã thu hồi' : driver.approvalStatus === 'pending' ? 'Chờ duyệt' : 'Đang hoạt động'}</span>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div className={`rounded-xl p-2 text-center ${hasHelmet ? 'bg-blue-100/70 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300' : 'bg-slate-200/70 text-slate-500 dark:bg-slate-900/60 dark:text-slate-400'}`}><HardHat className="mx-auto h-4 w-4" /><p className="mt-1 text-[10px] font-bold">{hasHelmet ? `${driver.helmetQuantity || 1} mũ` : 'Chưa cấp'}</p></div>
+                  <div className={`rounded-xl p-2 text-center ${hasShirt ? 'bg-indigo-100/70 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300' : 'bg-slate-200/70 text-slate-500 dark:bg-slate-900/60 dark:text-slate-400'}`}><Shirt className="mx-auto h-4 w-4" /><p className="mt-1 text-[10px] font-bold">{hasShirt ? `${driver.shirtQuantity || 1} áo` : 'Chưa cấp'}</p></div>
+                  <div className={`rounded-xl p-2 text-center ${hasBox ? 'bg-amber-100/70 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300' : 'bg-slate-200/70 text-slate-500 dark:bg-slate-900/60 dark:text-slate-400'}`}><Package className="mx-auto h-4 w-4" /><p className="mt-1 text-[10px] font-bold">{hasBox ? `${driver.boxQuantity || 1} thùng` : 'Chưa cấp'}</p></div>
+                </div>
+                <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-2.5 text-[11px] dark:border-slate-700"><span className="text-slate-500 dark:text-slate-400">Size áo: <strong className="text-slate-800 dark:text-slate-200">{driver.shirtSize || 'Chưa chọn'}</strong> · Cọc: <strong className="font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(driver.uniformFeePaid || 0)}</strong></span><span className="inline-flex shrink-0 items-center gap-1 font-bold text-amber-600 dark:text-amber-400">Chi tiết<ArrowRight className="h-3.5 w-3.5" /></span></div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Desktop table view */}
+        <div className="hidden overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 md:block">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold">

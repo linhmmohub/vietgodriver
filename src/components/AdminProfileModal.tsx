@@ -113,13 +113,13 @@ export const AdminProfileModal: React.FC<AdminProfileModalProps> = ({
         <div className="bg-slate-900 p-5 sm:p-6 text-white relative">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition"
+            className="absolute top-4 right-4 min-h-11 min-w-11 p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition"
             aria-label="Đóng cửa sổ"
           >
             <X className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center space-x-3.5">
+          <div className="flex min-w-0 items-center space-x-3.5 pr-10">
             <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 shadow-inner ${
               isSuperAdmin 
                 ? 'bg-amber-500/20 border border-amber-500/40 text-amber-400' 
@@ -127,8 +127,8 @@ export const AdminProfileModal: React.FC<AdminProfileModalProps> = ({
             }`}>
               {isSuperAdmin ? <ShieldCheck className="w-6 h-6 stroke-[2.2]" /> : <UserCheck className="w-6 h-6 stroke-[2.2]" />}
             </div>
-            <div>
-              <div className="flex items-center space-x-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base sm:text-lg font-extrabold text-white tracking-tight">
                   Thông Tin Tài Khoản
                 </h2>
@@ -165,7 +165,7 @@ export const AdminProfileModal: React.FC<AdminProfileModalProps> = ({
         </div>
 
         {/* Body: Form đổi mật khẩu & tên */}
-        <div className="p-5 sm:p-6 space-y-4">
+        <div className="mobile-modal-content p-4 sm:p-6 space-y-4">
           {isSuperAdmin && (
             <section className="rounded-2xl border border-cyan-500/25 bg-cyan-500/5 p-4">
               <div className="flex items-start gap-2.5">
@@ -269,14 +269,14 @@ export const AdminProfileModal: React.FC<AdminProfileModalProps> = ({
               </div>
             </div>
 
-            <div className="pt-2 flex items-center justify-between">
+            <div className="pt-2 flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
               <button
                 type="button"
                 onClick={() => {
                   onLogout();
                   onClose();
                 }}
-                className="px-3.5 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-rose-200 dark:border-rose-900 font-bold text-xs flex items-center space-x-1.5 transition active:scale-95"
+                className="min-h-11 justify-center px-3.5 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-rose-200 dark:border-rose-900 font-bold text-xs flex items-center space-x-1.5 transition active:scale-95"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Đăng Xuất Khỏi Hệ Thống</span>
@@ -284,7 +284,7 @@ export const AdminProfileModal: React.FC<AdminProfileModalProps> = ({
 
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-md transition active:scale-95"
+                className="min-h-11 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-md transition active:scale-95"
               >
                 Lưu Thay Đổi
               </button>

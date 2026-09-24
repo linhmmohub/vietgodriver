@@ -34,7 +34,7 @@ export const AppToast: React.FC<Props> = ({ toast, onDismiss }) => {
       <div className={`flex items-start gap-3 rounded-2xl border p-3.5 shadow-2xl backdrop-blur ${theme}`}>
         <Icon className="mt-0.5 h-5 w-5 shrink-0" />
         <p className="min-w-0 flex-1 text-sm font-semibold leading-relaxed">{toast.message}</p>
-        <button type="button" onClick={onDismiss} aria-label="Đóng thông báo" className="rounded-lg p-1 opacity-70 hover:bg-white/10 hover:opacity-100"><X className="h-4 w-4" /></button>
+        <button type="button" onClick={onDismiss} aria-label="Đóng thông báo" className="min-h-10 min-w-10 rounded-lg p-1 opacity-70 hover:bg-white/10 hover:opacity-100"><X className="h-4 w-4" /></button>
       </div>
     </div>
   );

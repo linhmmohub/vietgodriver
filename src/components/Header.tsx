@@ -86,7 +86,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <div className="leading-tight">
                 <div className="flex items-center gap-2">
-                  <h1 className="hidden max-w-[132px] truncate text-sm font-extrabold tracking-tight text-slate-100 md:block md:max-w-none">VietGo Driver Ops</h1>
+                  <h1 className="max-w-[132px] truncate text-sm font-extrabold tracking-tight text-slate-100 md:max-w-none"><span className="md:hidden">VietGo</span><span className="hidden md:inline">VietGo Driver Ops</span></h1>
                   {isSuperAdmin ? (
                     <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-300">Admin</span>
                   ) : isOperationsManager ? (
@@ -183,18 +183,6 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            <div className="flex md:hidden items-center space-x-1.5">
-              <button
-                id="btn-mobile-attendance"
-                onClick={() => setActiveTab('attendance')}
-                className={`min-h-10 rounded-xl px-2.5 text-[11px] font-black transition active:scale-95 ${activeTab === 'attendance' ? 'bg-emerald-400 text-slate-950' : 'border border-emerald-400/35 bg-emerald-400/10 text-emerald-200'}`}
-                title="Mở điểm danh"
-              >
-                <span className="flex items-center gap-1"><Radio className="h-3.5 w-3.5" />Điểm danh</span>
-              </button>
-              {canManageDriverOperations && <button onClick={onOpenDriverModal} className="hidden rounded-xl bg-amber-500 px-2.5 py-1.5 text-[11px] font-bold text-slate-950 transition active:scale-95 sm:flex sm:items-center sm:gap-1" title="Thêm tài xế mới"><Plus className="w-3.5 h-3.5 stroke-[3]" /><span>Cấp TX</span></button>}
-              <button id="btn-mobile-menu-toggle" onClick={() => setIsMobileDrawerOpen(true)} className="min-h-10 min-w-10 p-2 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition flex items-center justify-center" aria-label="Mở menu quản lý"><Menu className="w-5 h-5" /></button>
-            </div>
           </div>
         </div>
       </header>
@@ -569,13 +557,13 @@ export const Header: React.FC<HeaderProps> = ({
       {/* ERGONOMIC MOBILE STICKY BOTTOM NAVIGATION BAR (SM:HIDDEN) */}
       {/* ======================================================== */}
       <nav 
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-2 py-1.5 flex items-center justify-around shadow-2xl safe-area-bottom"
+        className="mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-2 py-1.5 flex items-center justify-around shadow-2xl"
         aria-label="Thanh điều hướng nhanh trên điện thoại"
       >
         {/* 1. Tab Tài xế */}
         {canManageDriverOperations && <button
           onClick={() => setActiveTab('drivers')}
-          className={`flex-1 py-1.5 px-1 rounded-2xl flex flex-col items-center justify-center transition ${
+          className={`mobile-bottom-nav-item order-2 flex-1 rounded-2xl flex flex-col items-center justify-center transition ${
             activeTab === 'drivers'
               ? 'text-amber-400 font-bold'
               : 'text-slate-400 hover:text-slate-200'
@@ -593,7 +581,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* 2. Tab Kho & Size */}
         {canManageDriverOperations && <button
           onClick={() => setActiveTab('inventory')}
-          className={`flex-1 py-1.5 px-1 rounded-2xl flex flex-col items-center justify-center transition ${
+          className={`mobile-bottom-nav-item order-3 flex-1 rounded-2xl flex flex-col items-center justify-center transition ${
             activeTab === 'inventory'
               ? 'text-amber-400 font-bold'
               : 'text-slate-400 hover:text-slate-200'
@@ -607,7 +595,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         <button
           onClick={() => setActiveTab('attendance')}
-          className={`flex-1 py-1.5 px-1 rounded-2xl flex flex-col items-center justify-center transition ${
+          className={`mobile-bottom-nav-item order-1 flex-1 rounded-2xl flex flex-col items-center justify-center transition ${
             activeTab === 'attendance'
               ? 'text-emerald-400 font-bold'
               : 'text-slate-400 hover:text-slate-200'
@@ -621,7 +609,7 @@ export const Header: React.FC<HeaderProps> = ({
         {isSuperAdmin && (
           <button
             onClick={() => setActiveTab('expenses')}
-            className={`flex-1 py-1.5 px-1 rounded-2xl flex flex-col items-center justify-center transition ${
+            className={`mobile-bottom-nav-item order-4 flex-1 rounded-2xl flex flex-col items-center justify-center transition ${
               activeTab === 'expenses'
                 ? 'text-emerald-400 font-bold'
                 : 'text-slate-400 hover:text-slate-200'
@@ -640,7 +628,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* 4. Menu & All Tasks Trigger */}
         <button
           onClick={() => setIsMobileDrawerOpen(true)}
-          className="flex-1 py-1.5 px-1 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:text-amber-400 transition"
+          className="mobile-bottom-nav-item order-5 flex-1 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:text-amber-400 transition"
         >
           <div className="relative">
             <Menu className="w-5 h-5" />

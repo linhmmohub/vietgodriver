@@ -52,19 +52,19 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-3 sm:p-4 relative overflow-hidden">
       {/* Background visual elements */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="max-w-md w-full relative z-10">
+      <div className="max-w-md w-full min-w-0 relative z-10">
         
         {/* Brand identity */}
         <div className="text-center mb-6">
           <div className="inline-flex h-16 w-16 rounded-3xl bg-amber-500/20 border border-amber-500/30 items-center justify-center text-amber-400 shadow-xl mb-3.5">
             <Radio className="h-8 w-8" />
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+          <h1 className="text-lg leading-tight sm:text-2xl font-black text-white tracking-tight text-balance">
             {appName}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
@@ -73,15 +73,15 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
         </div>
 
         {/* LOGIN FORM */}
-        <div className="bg-slate-900/90 backdrop-blur-md rounded-3xl border border-slate-800 p-6 sm:p-8 shadow-2xl animate-in fade-in duration-200">
+        <div className="bg-slate-900/90 backdrop-blur-md rounded-3xl border border-slate-800 p-4 sm:p-8 shadow-2xl animate-in fade-in duration-200">
           <div className="mb-5 grid grid-cols-2 gap-1 rounded-2xl border border-slate-700 bg-slate-950/50 p-1">
-            <button type="button" onClick={() => setEntryMode('driver')} className={`rounded-xl px-2 py-2.5 text-xs font-black transition ${entryMode === 'driver' ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'}`}>1. Điểm danh tài xế</button>
-            <button type="button" onClick={() => setEntryMode('admin')} className={`rounded-xl px-2 py-2.5 text-xs font-black transition ${entryMode === 'admin' ? 'bg-amber-400 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'}`}>2. Quản trị hệ thống</button>
+            <button type="button" onClick={() => setEntryMode('driver')} className={`min-h-11 rounded-xl px-2 py-2 text-[11px] leading-tight font-black transition ${entryMode === 'driver' ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'}`}>1. Điểm danh tài xế</button>
+            <button type="button" onClick={() => setEntryMode('admin')} className={`min-h-11 rounded-xl px-2 py-2 text-[11px] leading-tight font-black transition ${entryMode === 'admin' ? 'bg-amber-400 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'}`}>2. Quản trị hệ thống</button>
           </div>
 
           {entryMode === 'driver' && (
             <div className="animate-in fade-in slide-in-from-bottom-2">
-              <div className="rounded-2xl border border-emerald-500/35 bg-emerald-500/10 p-5 text-center">
+              <div className="rounded-2xl border border-emerald-500/35 bg-emerald-500/10 p-4 sm:p-5 text-center">
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-400/35 bg-emerald-500/15 text-emerald-300"><UserCheck className="h-6 w-6" /></div>
                 <h2 className="mt-3 text-lg font-black text-white">Cổng điểm danh tài xế</h2>
                 <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-slate-400">Dành cho tài xế VietGo vào/ra ca, báo nghỉ và chia sẻ GPS. Đăng nhập bằng số điện thoại cùng mã PIN riêng.</p>

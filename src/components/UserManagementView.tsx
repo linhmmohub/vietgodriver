@@ -364,16 +364,16 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
       {/* MODAL: Thêm tài khoản mới */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center space-x-2 text-purple-600 dark:text-purple-400 font-extrabold text-base">
+        <div className="mobile-modal-frame fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="mobile-sheet bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-4 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex min-w-0 items-center space-x-2 text-purple-600 dark:text-purple-400 font-extrabold text-base">
                 <UserPlus className="w-5 h-5" />
                 <span>Tạo Tài Khoản Mới</span>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold"
+                className="min-h-11 min-w-11 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold"
               >
                 ✕
               </button>
@@ -490,16 +490,16 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
       {/* MODAL: Sửa tài khoản */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center space-x-2 text-indigo-600 dark:text-indigo-400 font-extrabold text-base">
+        <div className="mobile-modal-frame fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="mobile-sheet bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-4 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex min-w-0 items-center space-x-2 text-indigo-600 dark:text-indigo-400 font-extrabold text-base">
                 <KeyRound className="w-5 h-5" />
                 <span>Chỉnh Sửa Tài Khoản: @{editingUser.username}</span>
               </div>
               <button
                 onClick={() => setEditingUser(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold"
+                className="min-h-11 min-w-11 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold"
               >
                 ✕
               </button>

@@ -62,7 +62,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({ drivers, expenses }) => 
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide leading-tight text-slate-500 dark:text-slate-400">
               Đồng Phục & Tài Xế
             </span>
             <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
@@ -110,7 +110,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({ drivers, expenses }) => 
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide leading-tight text-slate-500 dark:text-slate-400">
               Tiền Cọc Đã Thu
             </span>
             <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
@@ -150,7 +150,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({ drivers, expenses }) => 
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide leading-tight text-slate-500 dark:text-slate-400">
               Thu Hồi Vi Phạm
             </span>
             <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
@@ -185,7 +185,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({ drivers, expenses }) => 
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide leading-tight text-slate-500 dark:text-slate-400">
               Quỹ Ròng Hiện Tại
             </span>
             <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">

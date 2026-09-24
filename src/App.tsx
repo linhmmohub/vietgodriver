@@ -1143,17 +1143,17 @@ export default function App() {
       />
 
       {/* Cloud Status Indicator */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-2.5">
+      <div className="hidden max-w-7xl mx-auto px-3 pt-2.5 sm:block sm:px-6 lg:px-8">
         <div className="flex items-center justify-between text-[11px] text-slate-500 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
-          <div className="flex items-center space-x-1.5">
+          <div className="flex min-w-0 items-center space-x-1.5">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="font-medium text-slate-600 dark:text-slate-300">
+            <span className="hidden sm:inline font-medium text-slate-600 dark:text-slate-300">
               Cơ sở dữ liệu Đám Mây Firestore:
             </span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+            <span className="min-w-0 text-emerald-600 dark:text-emerald-400 font-semibold leading-tight">
               Đang đồng bộ trực tiếp thời gian thực (Realtime Multi-device)
             </span>
           </div>
@@ -1164,11 +1164,13 @@ export default function App() {
       </div>
 
       {/* Main Content Area */}
-      <main className="mobile-safe-bottom max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5 pb-24 sm:pb-10">
+      <main className="mobile-safe-bottom max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 pb-28 sm:py-5 sm:pb-10">
         
         {/* KPI Dashboard Cards (Only show on Drivers, Inventory, Expenses, or Summary tab) */}
         {isSuperAdmin && (activeTab === 'drivers' || activeTab === 'attendance' || activeTab === 'inventory' || activeTab === 'expenses' || activeTab === 'summary') && (
-          <StatsCards drivers={drivers} expenses={expenses} />
+          <div className="hidden sm:block">
+            <StatsCards drivers={drivers} expenses={expenses} />
+          </div>
         )}
 
         {/* Tab 1: Driver List (Admin + Operations Manager) */}
@@ -1288,7 +1290,7 @@ export default function App() {
       </main>
 
       {/* Mobile Floating Action Button (FAB) */}
-      <div className="md:hidden fixed bottom-[70px] right-4 z-30">
+      <div className="md:hidden fixed bottom-[86px] right-4 z-30">
         {activeTab === 'drivers' && canManageDriverOperations && (
           <button
             onClick={handleOpenNewDriver}

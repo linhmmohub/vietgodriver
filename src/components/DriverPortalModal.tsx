@@ -386,34 +386,34 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
       <div className="mobile-sheet bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full max-h-[94vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
         
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90 sticky top-0 z-10">
-          <div className="flex items-center space-x-3">
+        <div className="px-4 sm:px-5 py-4 border-b border-slate-800 flex items-center justify-between gap-3 bg-slate-900/90 sticky top-0 z-10">
+          <div className="flex min-w-0 items-center space-x-3">
             <div className="h-10 w-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
               <Radio className="w-5 h-5 animate-pulse" />
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2 leading-tight">
                 Cổng Điểm Danh Tài Xế
                 <span className="flex h-2 w-2 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 line-clamp-2">
                 Điểm danh vào ca, chọn trạm trực & báo trạng thái realtime
               </p>
             </div>
           </div>
           <button
             onClick={() => void handleClosePortal()}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="min-h-11 min-w-11 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="mobile-safe-bottom p-4 sm:p-6 overflow-y-auto space-y-4">
+        <div className="mobile-modal-content mobile-safe-bottom flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4">
 
           {/* STEP 1: If no active driver session, show Driver Authentication UI */}
           {!activeDriver ? (
@@ -853,7 +853,7 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-800 bg-slate-900/80 text-[11px] text-slate-400 flex items-center justify-between">
+        <div className="px-4 sm:px-5 py-3 border-t border-slate-800 bg-slate-900/80 text-[11px] text-slate-400 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center space-x-1.5">
             <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
             <span>Đồng bộ Cloud Firestore Realtime</span>
