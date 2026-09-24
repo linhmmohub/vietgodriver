@@ -147,6 +147,18 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
     };
   }, [dateAttendanceList, drivers]);
 
+  const dispatchDirectory = useMemo(() => {
+    const attendanceByDriver = new Map(dateAttendanceList.map(item => [item.driverId, item]));
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    return [...drivers]
+      .map(driver => ({ driver, attendance: attendanceByDriver.get(driver.id) }))
+      .filter(({ driver }) => !normalizedSearch || [driver.name, driver.code, driver.phone, driver.licensePlate || ''].some(value => value.toLowerCase().includes(normalizedSearch)))
+      .sort((a, b) => {
+        const priority = (status?: DriverShiftStatus) => status === 'on_duty' ? 0 : status === 'standby' ? 1 : status === 'emergency_leave' ? 2 : status === 'off_duty' ? 3 : 4;
+        return priority(a.attendance?.status) - priority(b.attendance?.status) || a.driver.name.localeCompare(b.driver.name, 'vi');
+      });
+  }, [dateAttendanceList, drivers, searchQuery]);
+
   const emergencyDetails = useMemo(() => dateAttendanceList
     .filter(item => item.status === 'emergency_leave')
     .map(attendance => {
@@ -223,6 +235,18 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
 
       <LiveDriverMap statuses={liveDriverStatuses} canViewLocation={!readOnly} canViewRoute={!readOnly} />
       {!readOnly && <AttendancePerformancePanel events={attendanceEvents} attendanceList={attendanceList} selectedDate={selectedDate} />}
+      {readOnly && (
+        <section className="rounded-3xl border border-sky-500/25 bg-slate-900 p-4 shadow-xl sm:p-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-sky-400/30 bg-sky-500/10 text-sky-300"><Users className="h-4.5 w-4.5" /></span><div><h3 className="font-black text-white">Danh bạ điều phối tài xế</h3><p className="text-[11px] text-slate-400">Toàn bộ tài xế và số điện thoại gọi nhanh. Quyền cấp 3 chỉ được xem, không thể sửa hoặc xóa.</p></div></div><span className="w-fit rounded-full border border-sky-400/25 bg-sky-500/10 px-2.5 py-1 text-xs font-bold text-sky-200">{dispatchDirectory.length}/{drivers.length} tài xế</span></div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{dispatchDirectory.map(({ driver, attendance }) => {
+            const statusText = attendance ? eventStatusLabel(attendance.status) : 'Chưa điểm danh';
+            const statusTheme = attendance?.status === 'on_duty' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : attendance?.status === 'standby' ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-200' : attendance?.status === 'emergency_leave' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : 'border-slate-700 bg-slate-800 text-slate-300';
+            const zones = attendance?.standbyZones?.length ? attendance.standbyZones.join(' · ') : attendance?.standbyZone || 'Chưa có trạm trực';
+            return <article key={driver.id} className="rounded-2xl border border-slate-700 bg-slate-800/75 p-3"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-bold text-white"><span className="mr-1.5 font-mono text-amber-300">{driver.code}</span>{driver.name}</p><p className="mt-0.5 text-[10px] text-slate-400">{driver.licensePlate || 'Chưa cập nhật biển số'} · {driver.workingType === 'parttime' ? 'Part-time' : 'Full-time'}</p></div><span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold ${statusTheme}`}>{statusText}</span></div><p className="mt-2 truncate text-[11px] text-slate-400"><MapPin className="mr-1 inline h-3.5 w-3.5" />{zones}</p><a href={`tel:${driver.phone}`} className="mt-3 flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-bold text-sky-200 transition hover:bg-sky-500/20"><Phone className="h-3.5 w-3.5" />Gọi {driver.phone}</a></article>;
+          })}</div>
+          {dispatchDirectory.length === 0 && <p className="mt-4 rounded-xl border border-dashed border-slate-700 p-4 text-center text-xs text-slate-400">Không có tài xế khớp từ khóa tìm kiếm.</p>}
+        </section>
+      )}
       
       {/* Top Banner: Realtime Dispatch & Action Buttons */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
