@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   X, 
   User, 
@@ -27,8 +27,9 @@ import {
   LogIn,
   LogOut
 } from 'lucide-react';
-import { Driver, DriverAttendance, DriverAttendanceEvent } from '../types';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { AttendanceSettings, Driver, DriverAttendance, DriverAttendanceEvent, DriverRoutePoint, DriverShiftStatus } from '../types';
+import { formatCurrency, formatDate, getTodayDateString } from '../utils/formatters';
+import { subscribeCloudDriverRoute } from '../services/firestoreSync';
 
 interface DriverDetailModalProps {
   driver: Driver | null;
@@ -37,6 +38,7 @@ interface DriverDetailModalProps {
   onApprove?: (driver: Driver) => void;
   attendanceList: DriverAttendance[];
   attendanceEvents: DriverAttendanceEvent[];
+  attendanceSettings: AttendanceSettings;
 }
 
 const formatWorkDuration = (milliseconds: number) => {
@@ -52,6 +54,24 @@ const attendanceEventLabel = (type: DriverAttendanceEvent['eventType']) => {
   return 'Cập nhật trạng thái';
 };
 
+const attendanceStatusLabel = (status: DriverShiftStatus) => ({
+  on_duty: 'Đang chạy VietGo',
+  standby: 'Chờ điều phối',
+  off_duty: 'Đã ra ca',
+  emergency_leave: 'Nghỉ đột xuất',
+}[status]);
+
+const routeDistanceInKm = (points: DriverRoutePoint[]) => {
+  const radians = (value: number) => value * Math.PI / 180;
+  return points.slice(1).reduce((total, point, index) => {
+    const previous = points[index];
+    const dLat = radians(point.latitude - previous.latitude);
+    const dLon = radians(point.longitude - previous.longitude);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(radians(previous.latitude)) * Math.cos(radians(point.latitude)) * Math.sin(dLon / 2) ** 2;
+    return total + 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }, 0);
+};
+
 export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
   driver,
   onClose,
@@ -59,8 +79,19 @@ export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
   onApprove,
   attendanceList,
   attendanceEvents,
+  attendanceSettings,
 }) => {
   const [isCopied, setIsCopied] = useState(false);
+  const [todayRoutePoints, setTodayRoutePoints] = useState<DriverRoutePoint[]>([]);
+  const todayRouteDate = getTodayDateString();
+
+  useEffect(() => {
+    if (!driver) {
+      setTodayRoutePoints([]);
+      return undefined;
+    }
+    return subscribeCloudDriverRoute(driver.id, todayRouteDate, setTodayRoutePoints);
+  }, [driver?.id, todayRouteDate]);
 
   if (!driver) return null;
 
@@ -89,6 +120,15 @@ export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
     if (activeStart !== null) totalMs += Math.max(0, Date.now() - activeStart);
     return { totalMs, completedSessions, isActive: activeStart !== null };
   })();
+  const todayDistanceKm = routeDistanceInKm(todayRoutePoints);
+  const latestAttendance = driverAttendance[0];
+  const completedAttendanceDays = driverAttendance.filter(item => item.status === 'off_duty').length;
+  const emergencyLeaveDays = driverAttendance.filter(item => item.status === 'emergency_leave').length;
+  const getBusyShiftLabel = (shiftId: string) => {
+    const shift = attendanceSettings.shifts.find(item => item.id === shiftId);
+    if (!shift) return shiftId;
+    return shift.startTime && shift.endTime ? `${shift.name} (${shift.startTime} - ${shift.endTime})` : shift.name;
+  };
 
   const handleCopySecret = () => {
     navigator.clipboard.writeText(secretCode);
@@ -233,6 +273,14 @@ export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
               <div className="rounded-xl border border-emerald-200 bg-white/80 p-2.5 dark:border-emerald-900/50 dark:bg-slate-900/60"><CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-300" /><p className="mt-1 text-sm font-black text-slate-900 dark:text-white">{workPerformance.completedSessions}</p><p className="text-[10px] text-slate-500">ca hoàn tất</p></div>
               <div className="rounded-xl border border-slate-200 bg-white/80 p-2.5 dark:border-slate-700 dark:bg-slate-900/60"><Activity className="h-4 w-4 text-slate-600 dark:text-slate-300" /><p className="mt-1 text-sm font-black text-slate-900 dark:text-white">{driverEvents.length}</p><p className="text-[10px] text-slate-500">mốc nhật ký</p></div>
             </div>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-xl border border-slate-200 bg-white/80 p-2 dark:border-slate-700 dark:bg-slate-900/60"><p className="text-[10px] text-slate-500">Ngày đã điểm danh</p><p className="mt-0.5 text-sm font-black text-slate-900 dark:text-white">{driverAttendance.length}</p></div>
+              <div className="rounded-xl border border-slate-200 bg-white/80 p-2 dark:border-slate-700 dark:bg-slate-900/60"><p className="text-[10px] text-slate-500">Ngày hoàn tất</p><p className="mt-0.5 text-sm font-black text-emerald-700 dark:text-emerald-300">{completedAttendanceDays}</p></div>
+              <div className="rounded-xl border border-slate-200 bg-white/80 p-2 dark:border-slate-700 dark:bg-slate-900/60"><p className="text-[10px] text-slate-500">Nghỉ đột xuất</p><p className="mt-0.5 text-sm font-black text-rose-700 dark:text-rose-300">{emergencyLeaveDays}</p></div>
+              <div className="rounded-xl border border-slate-200 bg-white/80 p-2 dark:border-slate-700 dark:bg-slate-900/60"><p className="text-[10px] text-slate-500">GPS hôm nay</p><p className="mt-0.5 text-sm font-black text-slate-900 dark:text-white">{todayRoutePoints.length ? `${todayDistanceKm.toFixed(1)} km` : 'Chưa bật'}</p><p className="text-[10px] text-slate-400">{todayRoutePoints.length ? `${todayRoutePoints.length} điểm hành trình` : 'Cần tài xế chia sẻ GPS'}</p></div>
+            </div>
+            {latestAttendance && <div className="mt-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300"><strong>Ca gần nhất:</strong> {latestAttendance.date} · {attendanceStatusLabel(latestAttendance.status)}{latestAttendance.standbyZones?.length ? ` · ${latestAttendance.standbyZones.join(' · ')}` : latestAttendance.standbyZone ? ` · ${latestAttendance.standbyZone}` : ''}</div>}
+
             {driverEvents.length > 0 ? (
               <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
                 {driverEvents.slice(0, 30).map(event => (
@@ -240,7 +288,16 @@ export const DriverDetailModal: React.FC<DriverDetailModalProps> = ({
                     <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${event.eventType === 'check_in' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300' : event.eventType === 'check_out' ? 'bg-rose-500/15 text-rose-600 dark:text-rose-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300'}`}>
                       {event.eventType === 'check_in' ? <LogIn className="h-3.5 w-3.5" /> : event.eventType === 'check_out' ? <LogOut className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
                     </span>
-                    <div className="min-w-0 flex-1"><p className="text-xs font-bold text-slate-800 dark:text-slate-100">{attendanceEventLabel(event.eventType)} <span className="font-normal text-slate-400">· {event.status}</span></p><p className="mt-0.5 text-[10px] text-slate-500">{new Date(event.occurredAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}{event.standbyZones?.length ? ` · ${event.standbyZones.join(' · ')}` : ''}</p>{event.note && <p className="mt-1 text-[10px] text-slate-600 dark:text-slate-300">{event.note}</p>}</div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{attendanceEventLabel(event.eventType)} <span className="font-normal text-slate-400">· {attendanceStatusLabel(event.status)}</span></p>
+                      <div className="mt-1 grid gap-x-3 gap-y-0.5 text-[10px] text-slate-500 sm:grid-cols-2">
+                        <p><strong className="font-semibold text-slate-600 dark:text-slate-300">Thời điểm:</strong> {new Date(event.occurredAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                        <p><strong className="font-semibold text-slate-600 dark:text-slate-300">Khu vực:</strong> {event.standbyZones?.length ? event.standbyZones.join(' · ') : 'Chưa ghi'}</p>
+                        <p className="sm:col-span-2"><strong className="font-semibold text-slate-600 dark:text-slate-300">Giờ bận công ty khác:</strong> {event.busyShiftIds?.length ? event.busyShiftIds.map(getBusyShiftLabel).join(' · ') : 'Chưa ghi'}</p>
+                        <p><strong className="font-semibold text-slate-600 dark:text-slate-300">Ghi nhận bởi:</strong> {event.recordedBy === 'dispatcher' ? 'Điều phối' : 'Tài xế'}</p>
+                      </div>
+                      {event.note && <p className="mt-1 rounded-lg bg-slate-100 px-2 py-1 text-[10px] text-slate-600 dark:bg-slate-800 dark:text-slate-300"><strong>Ghi chú:</strong> {event.note}</p>}
+                    </div>
                   </div>
                 ))}
               </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   getStoredDrivers, 
   saveStoredDrivers, 
@@ -118,6 +118,7 @@ import { DriverWorkflowManagementView } from './components/DriverWorkflowManagem
 import { AttendanceSettingsManagementView } from './components/AttendanceSettingsManagementView';
 import { DispatchDashboard } from './components/DispatchDashboard';
 import { DriverPortalModal } from './components/DriverPortalModal';
+import { AppToast, ToastMessage, ToastTone } from './components/AppToast';
 import { Plus } from 'lucide-react';
 
 export default function App() {
@@ -136,6 +137,19 @@ export default function App() {
   const [attendanceSettings, setAttendanceSettings] = useState<AttendanceSettings>(() => getStoredAttendanceSettings());
   const [activeTab, setActiveTab] = useState<ActiveTab>('drivers');
   const [isCloudSynced, setIsCloudSynced] = useState(false);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  const showToast = useCallback((message: string, tone: ToastTone = 'info') => {
+    setToast({ id: Date.now(), message, tone });
+  }, []);
+
+  // Legacy modules still call alert(); turn those blocking browser dialogs into
+  // the same non-blocking toast used by the driver portal.
+  useEffect(() => {
+    const nativeAlert = window.alert;
+    window.alert = (message?: unknown) => showToast(String(message ?? ''), 'error');
+    return () => { window.alert = nativeAlert; };
+  }, [showToast]);
 
   // Auth & Session state
   const [adminUser, setAdminUser] = useState<AuthSession | null>(() => getStoredAuthSession());
@@ -549,7 +563,7 @@ export default function App() {
     }
   };
 
-  const handleSaveAttendance = async (data: Omit<DriverAttendance, 'id' | 'updatedAt'>) => {
+  const handleSaveAttendance = async (data: Omit<DriverAttendance, 'id' | 'updatedAt'>): Promise<boolean> => {
     const id = `attendance_${data.date}_${data.driverId}`;
     const existing = attendanceList.find(item => item.id === id);
     const now = new Date().toISOString();
@@ -574,7 +588,7 @@ export default function App() {
     setAttendanceList(prev => existing ? prev.map(item => item.id === id ? attendance : item) : [attendance, ...prev]);
     if (!(await saveAttendanceToCloud(attendance))) {
       alert('Không thể lưu điểm danh lên Cloud. Vui lòng kiểm tra kết nối rồi thử lại.');
-      return;
+      return false;
     }
     const eventType = isNewWorkSession && data.date === getTodayDateString()
       ? 'check_in'
@@ -606,12 +620,15 @@ export default function App() {
     setAttendanceEvents(previous => [event, ...previous]);
     if (!(await saveAttendanceEventToCloud(event))) {
       alert('Điểm danh đã lưu nhưng chưa thể ghi lịch sử ca lên Cloud. Vui lòng kiểm tra kết nối và cập nhật lại trạng thái.');
+      return false;
     }
     addAuditLog('DRIVER_UPDATE', 'Cập nhật điểm danh', `${attendance.driverName} cập nhật trạng thái ${attendance.status} ngày ${attendance.date}.`, attendance.driverName, adminUser);
+    return true;
   };
 
-  const handleSaveAttendanceBatch = async (items: Array<Omit<DriverAttendance, 'id' | 'updatedAt'>>) => {
-    await Promise.all(items.map(item => handleSaveAttendance(item)));
+  const handleSaveAttendanceBatch = async (items: Array<Omit<DriverAttendance, 'id' | 'updatedAt'>>): Promise<boolean> => {
+    const results = await Promise.all(items.map(item => handleSaveAttendance(item)));
+    return results.every(Boolean);
   };
 
   const handleUpdateAttendanceStatus = async (attendance: DriverAttendance, status: DriverShiftStatus, note?: string) => {
@@ -1031,7 +1048,9 @@ export default function App() {
           onStopLocationSharing={handleStopDriverLocationSharing}
           onSaveRoutePoint={handleSaveDriverRoutePoint}
           liveDriverStatuses={liveDriverStatuses}
+          onNotify={showToast}
         />
+        <AppToast toast={toast} onDismiss={() => setToast(null)} />
       </>
     );
   }
@@ -1271,12 +1290,14 @@ export default function App() {
         onStopLocationSharing={handleStopDriverLocationSharing}
         onSaveRoutePoint={handleSaveDriverRoutePoint}
         liveDriverStatuses={liveDriverStatuses}
+        onNotify={showToast}
       />
 
       <DriverDetailModal
         driver={selectedDriver}
         attendanceList={attendanceList}
         attendanceEvents={attendanceEvents}
+        attendanceSettings={attendanceSettings}
         onClose={() => {
           setIsDetailModalOpen(false);
           setSelectedDriver(null);
@@ -1315,6 +1336,8 @@ export default function App() {
         expenses={expenses}
         onRestoreData={handleRestoreData}
       />
+
+      <AppToast toast={toast} onDismiss={() => setToast(null)} />
 
     </div>
   );

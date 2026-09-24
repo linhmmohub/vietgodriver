@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { 
   UserCheck, 
   LogIn, 
@@ -47,12 +47,13 @@ interface DriverPortalModalProps {
   onDriverLogout: () => void;
   todayAttendanceList: DriverAttendance[];
   attendanceSettings: AttendanceSettings;
-  onSubmitAttendance: (attendanceData: Array<Omit<DriverAttendance, 'id' | 'updatedAt'>>) => Promise<void>;
+  onSubmitAttendance: (attendanceData: Array<Omit<DriverAttendance, 'id' | 'updatedAt'>>) => Promise<boolean>;
   liveStatus: DriverLiveStatus | null;
   onUpdateLiveStatus: (status: DriverLiveStatus) => Promise<void>;
   onStopLocationSharing: (driverId: string) => Promise<void>;
   onSaveRoutePoint: (point: DriverRoutePoint) => Promise<void>;
   liveDriverStatuses: DriverLiveStatus[];
+  onNotify: (message: string, tone?: 'success' | 'error' | 'info') => void;
 }
 
 export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
@@ -70,6 +71,7 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
   onStopLocationSharing,
   onSaveRoutePoint,
   liveDriverStatuses,
+  onNotify,
 }) => {
   // The public portal never exposes a directory of drivers.
   const [selectedDriverId, setSelectedDriverId] = useState<string>('');
@@ -104,6 +106,14 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
   const lastLiveUploadRef = useRef(0);
   const lastRoutePointRef = useRef<DriverRoutePoint | null>(null);
   liveStatusRef.current = liveStatus;
+
+  useEffect(() => {
+    if (loginError) onNotify(loginError, 'error');
+  }, [loginError, onNotify]);
+
+  useEffect(() => {
+    if (locationError) onNotify(locationError, 'error');
+  }, [locationError, onNotify]);
 
   // Helper string cleaner
   const cleanStr = (s?: string | number) => String(s || '').toLowerCase().replace(/[\s\-_.\+()]/g, '');
@@ -295,18 +305,22 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
     const finalZones = Array.from(new Set([...standbyZones, ...(customZone.trim() ? [customZone.trim()] : [])]));
     if (!status) {
       setAttendanceValidationError('Vui lòng chọn trạng thái ca trước khi xác nhận.');
+      onNotify('Vui lòng chọn trạng thái ca trước khi xác nhận.', 'error');
       return;
     }
     if (!selectedBusyShifts.length) {
       setAttendanceValidationError('Vui lòng chọn ít nhất một khung giờ bận ở công ty khác.');
+      onNotify('Vui lòng chọn ít nhất một khung giờ bận ở công ty khác.', 'error');
       return;
     }
     if (!finalZones.length) {
       setAttendanceValidationError('Vui lòng chọn hoặc nhập ít nhất một trạm / khu vực trực chính.');
+      onNotify('Vui lòng chọn ít nhất một trạm / khu vực trực chính.', 'error');
       return;
     }
     if (attendanceScope === 'weekly' && !weekDays.length) {
       setAttendanceValidationError('Vui lòng chọn ít nhất một ngày trong tuần.');
+      onNotify('Vui lòng chọn ít nhất một ngày trong tuần.', 'error');
       return;
     }
     setAttendanceValidationError(null);
@@ -341,19 +355,26 @@ export const DriverPortalModal: React.FC<DriverPortalModalProps> = ({
       records = [buildRecord(todayStr)];
     }
     if (!records.length) return;
-    await onSubmitAttendance(records);
-    if (selectedStatus === 'off_duty' || selectedStatus === 'emergency_leave') await handleStopLocationSharing();
-    setSubmittedMessage(
+    try {
+      const isSaved = await onSubmitAttendance(records);
+      if (!isSaved) return;
+      if (selectedStatus === 'off_duty' || selectedStatus === 'emergency_leave') await handleStopLocationSharing();
+    } catch {
+      onNotify('Chưa thể đồng bộ điểm danh lên Cloud. Vui lòng kiểm tra mạng và thử lại.', 'error');
+      return;
+    }
+    const successMessage =
       attendanceScope === 'weekly'
-        ? `✅ Đã đăng ký ${records.length} ngày trong tuần. Bạn vẫn có thể cập nhật từng ngày khi lịch thay đổi.`
+        ? `Đã đăng ký ${records.length} ngày trong tuần và lưu lên Cloud.`
         : selectedStatus === 'on_duty'
-        ? '✅ Điểm danh VÀO CA thành công! Dữ liệu đã đồng bộ tức thì lên bảng điều phối.' 
+        ? 'Điểm danh vào ca thành công. Dữ liệu đã đồng bộ lên bảng điều phối.'
         : selectedStatus === 'off_duty'
-          ? '🏁 Đã báo cáo RA CA thành công. Chúc bạn nghỉ ngơi an toàn!' 
+          ? 'Đã báo cáo ra ca và lưu nhật ký thời gian làm việc.'
           : selectedStatus === 'emergency_leave'
-            ? '⚠️ Đã gửi Báo cáo NGHỈ ĐỘT XUẤT tới đội ngũ điều phối.'
-            : '✅ Đã cập nhật trạng thái làm việc thành công!'
-    );
+            ? 'Đã gửi báo cáo nghỉ đột xuất tới điều phối.'
+            : 'Đã cập nhật trạng thái làm việc thành công.';
+    setSubmittedMessage(successMessage);
+    onNotify(successMessage, 'success');
 
     setTimeout(() => {
       setSubmittedMessage(null);
