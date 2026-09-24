@@ -18,7 +18,8 @@ import {
   ArrowUpRight,
   TrendingUp,
   Activity,
-  UserPlus
+  UserPlus,
+  X
 } from 'lucide-react';
 import { Driver, DriverAttendance, DriverAttendanceEvent, AttendanceShift, DriverShiftStatus, AttendanceSettings, DriverLiveStatus } from '../types';
 import { getTodayDateString } from '../utils/formatters';
@@ -45,6 +46,25 @@ const shiftInfo = (shifts: AttendanceShift | AttendanceShift[], settings: Attend
   return { label: items.map(item => item!.name).join(' · ') || 'Không bận cố định', time: items.map(item => item!.startTime && item!.endTime ? `${item!.startTime} - ${item!.endTime}` : item!.description || '').filter(Boolean).join(' · ') || 'Không bận cố định', available: availability.freeLabel, badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
 };
 
+const eventActionLabel = (event: DriverAttendanceEvent) => {
+  if (event.eventType === 'check_in') return 'Vào ca';
+  if (event.eventType === 'check_out') return 'Ra ca';
+  if (event.eventType === 'schedule_update') return 'Cập nhật lịch';
+  return 'Cập nhật trạng thái';
+};
+
+const eventStatusLabel = (status: DriverShiftStatus) => ({
+  on_duty: 'Đang chạy VietGo',
+  standby: 'Chờ điều phối',
+  off_duty: 'Đã ra ca',
+  emergency_leave: 'Nghỉ đột xuất',
+}[status]);
+
+const formatWorkTime = (milliseconds: number) => {
+  const minutes = Math.max(0, Math.floor(milliseconds / 60000));
+  return `${Math.floor(minutes / 60)} giờ ${minutes % 60} phút`;
+};
+
 export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
   drivers,
   attendanceList,
@@ -69,6 +89,7 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
   const [quickStatus, setQuickStatus] = useState<DriverShiftStatus | ''>('');
   const [quickZone, setQuickZone] = useState('');
   const [quickCheckinError, setQuickCheckinError] = useState<string | null>(null);
+  const [isEmergencyDetailsOpen, setIsEmergencyDetailsOpen] = useState(false);
   const activeShifts = useMemo(() => attendanceSettings.shifts.filter(item => item.isActive).sort((a, b) => a.order - b.order), [attendanceSettings]);
   const activeZones = useMemo(() => attendanceSettings.zones.filter(item => item.isActive).sort((a, b) => a.order - b.order), [attendanceSettings]);
   const [quickNote, setQuickNote] = useState('');
@@ -125,6 +146,20 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
       notCheckedInDrivers: notCheckedIn,
     };
   }, [dateAttendanceList, drivers]);
+
+  const emergencyDetails = useMemo(() => dateAttendanceList
+    .filter(item => item.status === 'emergency_leave')
+    .map(attendance => {
+      const timeline = attendanceEvents
+        .filter(event => event.driverId === attendance.driverId && event.date === selectedDate)
+        .sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime());
+      const leaveEvent = [...timeline].reverse().find(event => event.status === 'emergency_leave');
+      const checkInEvent = timeline.find(event => event.eventType === 'check_in');
+      const leaveAt = leaveEvent?.occurredAt || attendance.updatedAt;
+      const workedMs = checkInEvent ? Math.max(0, new Date(leaveAt).getTime() - new Date(checkInEvent.occurredAt).getTime()) : 0;
+      return { attendance, timeline, leaveAt, checkInEvent, workedMs };
+    })
+    .sort((a, b) => new Date(b.leaveAt).getTime() - new Date(a.leaveAt).getTime()), [attendanceEvents, dateAttendanceList, selectedDate]);
 
   // Filtered attendance for table
   const filteredAttendance = useMemo(() => {
@@ -299,7 +334,13 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
           </div>
 
           {/* 4. Nghỉ đột xuất */}
-          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex flex-col justify-between">
+          <button
+            type="button"
+            disabled={readOnly}
+            onClick={() => setIsEmergencyDetailsOpen(true)}
+            title={readOnly ? 'Tài khoản này chỉ được xem tài xế đang trong ca.' : 'Xem chi tiết tài xế nghỉ đột xuất'}
+            className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex flex-col justify-between text-left transition hover:bg-rose-500/20 hover:border-rose-400/60 disabled:cursor-not-allowed disabled:hover:bg-rose-500/10"
+          >
             <div className="flex items-center justify-between text-xs text-rose-400 font-semibold">
               <span>Nghỉ Đột Xuất</span>
               <AlertTriangle className="w-4 h-4" />
@@ -308,9 +349,9 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
               <span className="text-2xl font-black text-rose-300 font-mono">
                 {stats.emergencyLeaveCount}
               </span>
-              <span className="text-[11px] text-rose-400/80">Cần lưu ý</span>
+              <span className="text-[11px] text-rose-300 underline underline-offset-2">Xem chi tiết</span>
             </div>
-          </div>
+          </button>
 
           {/* 5. Chưa điểm danh */}
           <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col justify-between">
@@ -790,6 +831,29 @@ export const DispatchDashboard: React.FC<DispatchDashboardProps> = ({
               ... và {stats.notCheckedInDrivers.length - 9} tài xế khác chưa điểm danh
             </p>
           )}
+        </div>
+      )}
+
+      {isEmergencyDetailsOpen && !readOnly && (
+        <div className="mobile-modal-frame fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm" onClick={() => setIsEmergencyDetailsOpen(false)}>
+          <div className="mobile-sheet max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-3xl border border-rose-500/30 bg-slate-900 text-slate-100 shadow-2xl" onClick={event => event.stopPropagation()}>
+            <div className="flex items-start justify-between border-b border-slate-800 bg-rose-500/10 px-4 py-4 sm:px-5">
+              <div className="flex gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-rose-400/30 bg-rose-500/15 text-rose-300"><AlertTriangle className="h-5 w-5" /></span><div><h3 className="font-black text-white">Chi tiết nghỉ đột xuất</h3><p className="mt-0.5 text-xs text-slate-400">{selectedDate} · {emergencyDetails.length} tài xế cần theo dõi</p></div></div>
+              <button type="button" onClick={() => setIsEmergencyDetailsOpen(false)} className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white" aria-label="Đóng"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="max-h-[calc(92vh-80px)] space-y-3 overflow-y-auto p-4 sm:p-5">
+              {emergencyDetails.length === 0 ? <p className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-400">Không có tài xế nghỉ đột xuất trong ngày này.</p> : emergencyDetails.map(({ attendance, timeline, leaveAt, checkInEvent, workedMs }) => {
+                const busyInfo = shiftInfo(attendance.busyShiftIds?.length ? attendance.busyShiftIds : attendance.shift, attendanceSettings);
+                const zones = attendance.standbyZones?.length ? attendance.standbyZones.join(' · ') : attendance.standbyZone || 'Chưa ghi';
+                return <article key={attendance.id} className="rounded-2xl border border-rose-500/25 bg-slate-800/70 p-3.5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><p className="font-bold text-white"><span className="mr-1.5 font-mono text-rose-300">{attendance.driverCode}</span>{attendance.driverName}</p><p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400"><Phone className="h-3 w-3" />{attendance.driverPhone}{attendance.licensePlate ? ` · ${attendance.licensePlate}` : ''}</p></div><span className="w-fit rounded-full border border-rose-500/30 bg-rose-500/15 px-2 py-1 text-[10px] font-bold text-rose-200">Báo nghỉ {new Date(leaveAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span></div>
+                  <div className="mt-3 grid gap-2 text-[11px] sm:grid-cols-2"><div className="rounded-xl border border-slate-700 bg-slate-950/35 p-2.5"><p className="text-slate-500">Hoạt động trước khi nghỉ</p><p className="mt-0.5 font-bold text-cyan-200">{checkInEvent ? `${formatWorkTime(workedMs)} · vào ca ${new Date(checkInEvent.occurredAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : attendance.checkInTime ? `Vào ca ${new Date(attendance.checkInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : 'Chưa có mốc vào ca'}</p></div><div className="rounded-xl border border-slate-700 bg-slate-950/35 p-2.5"><p className="text-slate-500">Thời gian nghỉ đã báo</p><p className="mt-0.5 font-bold text-rose-200">{attendance.absenceStartTime || 'Ngay bây giờ'}{attendance.absenceEndTime ? ` → ${attendance.absenceEndTime}` : ' → Chưa xác định'}</p></div></div>
+                  <div className="mt-2 space-y-1 text-[11px] text-slate-300"><p><span className="text-slate-500">Trạm/khu vực:</span> {zones}</p><p><span className="text-slate-500">Khung giờ bận công ty khác:</span> {busyInfo.label} · {busyInfo.time}</p>{attendance.note && <p className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-2 text-rose-100"><strong>Lý do / ghi chú:</strong> {attendance.note}</p>}</div>
+                  <div className="mt-3 border-t border-slate-700 pt-2.5"><p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">Nhật ký hoạt động trong ngày</p>{timeline.length ? <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">{timeline.map(event => <div key={event.id} className={`min-w-[132px] rounded-xl border p-2 ${event.status === 'emergency_leave' ? 'border-rose-500/35 bg-rose-500/10' : 'border-slate-700 bg-slate-950/40'}`}><p className="text-[10px] font-bold text-slate-200">{eventActionLabel(event)}</p><p className="mt-0.5 text-[10px] text-slate-400">{eventStatusLabel(event.status)}</p><p className="mt-1 text-[10px] text-slate-500">{new Date(event.occurredAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p></div>)}</div> : <p className="text-[11px] text-slate-500">Bản điểm danh cũ chưa có nhật ký mốc thời gian.</p>}</div>
+                </article>;
+              })}
+            </div>
+          </div>
         </div>
       )}
 
