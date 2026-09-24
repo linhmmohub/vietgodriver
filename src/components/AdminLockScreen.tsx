@@ -32,6 +32,7 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [entryMode, setEntryMode] = useState<'driver' | 'admin'>('driver');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +74,24 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
 
         {/* LOGIN FORM */}
         <div className="bg-slate-900/90 backdrop-blur-md rounded-3xl border border-slate-800 p-6 sm:p-8 shadow-2xl animate-in fade-in duration-200">
+          <div className="mb-5 grid grid-cols-2 gap-1 rounded-2xl border border-slate-700 bg-slate-950/50 p-1">
+            <button type="button" onClick={() => setEntryMode('driver')} className={`rounded-xl px-2 py-2.5 text-xs font-black transition ${entryMode === 'driver' ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'}`}>1. Điểm danh tài xế</button>
+            <button type="button" onClick={() => setEntryMode('admin')} className={`rounded-xl px-2 py-2.5 text-xs font-black transition ${entryMode === 'admin' ? 'bg-amber-400 text-slate-950 shadow-lg' : 'text-slate-400 hover:text-white'}`}>2. Quản trị hệ thống</button>
+          </div>
+
+          {entryMode === 'driver' && (
+            <div className="animate-in fade-in slide-in-from-bottom-2">
+              <div className="rounded-2xl border border-emerald-500/35 bg-emerald-500/10 p-5 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-400/35 bg-emerald-500/15 text-emerald-300"><UserCheck className="h-6 w-6" /></div>
+                <h2 className="mt-3 text-lg font-black text-white">Cổng điểm danh tài xế</h2>
+                <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-slate-400">Dành cho tài xế VietGo vào/ra ca, báo nghỉ và chia sẻ GPS. Đăng nhập bằng số điện thoại cùng mã PIN riêng.</p>
+                <button type="button" onClick={onOpenDriverCheckin} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3.5 text-sm font-black text-slate-950 shadow-lg transition hover:bg-emerald-400 active:scale-98"><UserCheck className="h-4 w-4" />Mở điểm danh tài xế<ArrowRight className="h-4 w-4" /></button>
+              </div>
+              <p className="mt-4 text-center text-[11px] text-slate-500">Bạn là điều phối viên hoặc Admin? Chọn tab 2 để đăng nhập quản trị.</p>
+            </div>
+          )}
+
+          {entryMode === 'admin' && <>
           
           <div className="flex items-center space-x-2.5 pb-5 border-b border-slate-800">
             <div className="h-9 w-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
@@ -159,7 +178,9 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
 
           </form>
 
-          <div className="mt-5 pt-5 border-t border-slate-800">
+          </>}
+
+          {entryMode === 'admin' && <div className="mt-5 pt-5 border-t border-slate-800">
             <p className="text-center text-xs text-slate-400 mb-3">Bạn là tài xế?</p>
             <button
               type="button"
@@ -171,7 +192,7 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
               <ArrowRight className="w-4 h-4" />
             </button>
             <p className="text-center text-[11px] text-slate-500 mt-2">Đăng nhập bằng SĐT và mã định danh/PIN do quản lý cấp.</p>
-          </div>
+          </div>}
 
         </div>
 
