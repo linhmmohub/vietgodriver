@@ -27,6 +27,7 @@ import {
   subscribeCloudExpenses, 
   subscribeCloudAttendance,
   subscribeCloudAttendanceEvents,
+  subscribeCloudDriverChangeRequests,
   subscribeCloudDriverLiveStatus,
   subscribeCloudUsers, 
   subscribeCloudLogs,
@@ -43,6 +44,7 @@ import {
   saveAttendanceEventToCloud,
   saveDriverLiveStatusToCloud,
   saveDriverRoutePointToCloud,
+  saveDriverChangeRequestToCloud,
   deleteExpenseFromCloud,
   saveEquipmentCategoryToCloud,
   deleteEquipmentCategoryFromCloud,
@@ -94,7 +96,8 @@ import {
   AttendanceShift,
   DriverShiftStatus,
   DriverLiveStatus,
-  DriverRoutePoint
+  DriverRoutePoint,
+  DriverChangeRequest
 } from './types';
 import { downloadCSV, formatDate, getTodayDateString } from './utils/formatters';
 import { Header } from './components/Header';
@@ -118,6 +121,7 @@ import { DriverWorkflowManagementView } from './components/DriverWorkflowManagem
 import { AttendanceSettingsManagementView } from './components/AttendanceSettingsManagementView';
 import { DispatchDashboard } from './components/DispatchDashboard';
 import { DriverPortalModal } from './components/DriverPortalModal';
+import { DriverChangeRequestsPanel } from './components/DriverChangeRequestsPanel';
 import { AppToast, ToastMessage, ToastTone } from './components/AppToast';
 import { Plus } from 'lucide-react';
 
@@ -126,6 +130,7 @@ export default function App() {
   const [expenses, setExpenses] = useState<ExpenseItem[]>(() => getStoredExpenses());
   const [attendanceList, setAttendanceList] = useState<DriverAttendance[]>([]);
   const [attendanceEvents, setAttendanceEvents] = useState<DriverAttendanceEvent[]>([]);
+  const [driverChangeRequests, setDriverChangeRequests] = useState<DriverChangeRequest[]>([]);
   const [liveDriverStatuses, setLiveDriverStatuses] = useState<DriverLiveStatus[]>([]);
   const [driverSession, setDriverSession] = useState<DriverSession | null>(() => getStoredDriverSession());
   const [isDriverPortalOpen, setIsDriverPortalOpen] = useState(false);
@@ -222,6 +227,10 @@ export default function App() {
       setAttendanceEvents(events);
     });
 
+    const unsubDriverChangeRequests = subscribeCloudDriverChangeRequests((requests) => {
+      setDriverChangeRequests(requests);
+    });
+
     const unsubLiveDrivers = subscribeCloudDriverLiveStatus((statuses) => {
       setLiveDriverStatuses(statuses);
     });
@@ -282,6 +291,7 @@ export default function App() {
       unsubExpenses();
       unsubAttendance();
       unsubAttendanceEvents();
+      unsubDriverChangeRequests();
       unsubLiveDrivers();
       unsubUsers();
       unsubLogs();
@@ -423,6 +433,30 @@ export default function App() {
     if (!requireDriverOperationsManager('Lưu hồ sơ tài xế')) return;
     const isNew = !drivers.some((d) => d.id === savedDriver.id);
 
+    // Level 2 may propose changes, but cannot alter the live driver/uniform record.
+    if (adminUser?.role === 'manager') {
+      const request: DriverChangeRequest = {
+        id: `driver_change_${savedDriver.id}_${Date.now()}`,
+        type: isNew ? 'driver_create' : 'driver_update',
+        status: 'pending',
+        driver: savedDriver,
+        submittedBy: { id: adminUser.id, username: adminUser.username, displayName: adminUser.displayName },
+        createdAt: new Date().toISOString(),
+      };
+      setDriverChangeRequests(previous => [request, ...previous]);
+      if (!(await saveDriverChangeRequestToCloud(request))) {
+        setDriverChangeRequests(previous => previous.filter(item => item.id !== request.id));
+        showToast('Không thể gửi yêu cầu duyệt lên Cloud. Vui lòng kiểm tra kết nối.', 'error');
+        return;
+      }
+      addAuditLog('DRIVER_UPDATE', 'Gửi yêu cầu duyệt thay đổi', `${adminUser.displayName} gửi yêu cầu ${isNew ? 'tạo' : 'chỉnh sửa'} hồ sơ ${savedDriver.name} (${savedDriver.code}) chờ Admin cấp 1 duyệt.`, `${savedDriver.name} (${savedDriver.code})`, adminUser);
+      reloadLogs();
+      setIsDriverModalOpen(false);
+      setDriverToEdit(null);
+      showToast('Đã gửi yêu cầu lên Admin cấp 1. Dữ liệu hiện tại chưa thay đổi.', 'success');
+      return;
+    }
+
     setDrivers((prev) => {
       if (!isNew) {
         return prev.map((d) => (d.id === savedDriver.id ? savedDriver : d));
@@ -468,7 +502,7 @@ export default function App() {
   };
 
   const handleDeleteDriver = async (id: string) => {
-    if (!requireDriverOperationsManager('Xóa hồ sơ tài xế')) return;
+    if (!requireSuperAdmin('Xóa hồ sơ tài xế')) return;
     const target = drivers.find(d => d.id === id);
     setDrivers((prev) => prev.filter((d) => d.id !== id));
     
@@ -501,7 +535,7 @@ export default function App() {
   };
 
   const handleApproveDriver = (driver: Driver) => {
-    if (!requireDriverOperationsManager('Phê duyệt tài xế')) return;
+    if (!requireSuperAdmin('Phê duyệt tài xế')) return;
     const approved: Driver = {
       ...driver,
       approvalStatus: 'approved',
@@ -524,6 +558,37 @@ export default function App() {
     if (selectedDriver && selectedDriver.id === approved.id) {
       setSelectedDriver(approved);
     }
+  };
+
+  const handleReviewDriverChangeRequest = async (request: DriverChangeRequest, decision: 'approved' | 'rejected') => {
+    if (!requireSuperAdmin('Duyệt yêu cầu chỉnh sửa')) return;
+    if (request.status !== 'pending' || !adminUser) return;
+    const reviewedAt = new Date().toISOString();
+    const reviewedRequest: DriverChangeRequest = {
+      ...request,
+      status: decision,
+      reviewedAt,
+      reviewedBy: { id: adminUser.id, username: adminUser.username, displayName: adminUser.displayName },
+    };
+
+    if (decision === 'approved') {
+      const approvedDriver = { ...request.driver, updatedAt: reviewedAt };
+      if (!(await saveDriverToCloud(approvedDriver))) {
+        showToast('Không thể áp dụng hồ sơ tài xế lên Cloud. Yêu cầu vẫn đang chờ duyệt.', 'error');
+        return;
+      }
+      setDrivers(previous => previous.some(driver => driver.id === approvedDriver.id)
+        ? previous.map(driver => driver.id === approvedDriver.id ? approvedDriver : driver)
+        : [approvedDriver, ...previous]);
+    }
+    if (!(await saveDriverChangeRequestToCloud(reviewedRequest))) {
+      showToast('Dữ liệu đã xử lý nhưng chưa thể cập nhật trạng thái yêu cầu trên Cloud. Vui lòng thử lại.', 'error');
+      return;
+    }
+    setDriverChangeRequests(previous => previous.map(item => item.id === reviewedRequest.id ? reviewedRequest : item));
+    addAuditLog('DRIVER_UPDATE', decision === 'approved' ? 'Duyệt yêu cầu thay đổi' : 'Từ chối yêu cầu thay đổi', `${adminUser.displayName} ${decision === 'approved' ? 'đã duyệt' : 'đã từ chối'} yêu cầu ${request.type === 'driver_create' ? 'tạo' : 'chỉnh sửa'} hồ sơ ${request.driver.name} (${request.driver.code}) của ${request.submittedBy.displayName}.`, `${request.driver.name} (${request.driver.code})`, adminUser);
+    reloadLogs();
+    showToast(decision === 'approved' ? 'Đã duyệt và áp dụng dữ liệu lên Cloud.' : 'Đã từ chối yêu cầu; dữ liệu hiện tại được giữ nguyên.', decision === 'approved' ? 'success' : 'info');
   };
 
   const handleDriverLogin = (driver: Driver) => {
@@ -1108,15 +1173,23 @@ export default function App() {
 
         {/* Tab 1: Driver List (Admin + Operations Manager) */}
         {activeTab === 'drivers' && canManageDriverOperations && (
-          <DriverList
-            drivers={drivers}
-            onEditDriver={handleEditDriver}
-            onDeleteDriver={handleDeleteDriver}
-            onViewDriver={handleViewDriver}
-            onAddNewDriver={handleOpenNewDriver}
-            onApproveDriver={handleApproveDriver}
-            driverWorkflowSettings={driverWorkflowSettings}
-          />
+          <div className="space-y-5">
+            <DriverChangeRequestsPanel
+              requests={driverChangeRequests}
+              currentUser={adminUser}
+              onReview={handleReviewDriverChangeRequest}
+            />
+            <DriverList
+              drivers={drivers}
+              onEditDriver={handleEditDriver}
+              onDeleteDriver={handleDeleteDriver}
+              onViewDriver={handleViewDriver}
+              onAddNewDriver={handleOpenNewDriver}
+              onApproveDriver={isSuperAdmin ? handleApproveDriver : undefined}
+              canDelete={isSuperAdmin}
+              driverWorkflowSettings={driverWorkflowSettings}
+            />
+          </div>
         )}
 
         {activeTab === 'attendance' && (
@@ -1306,7 +1379,7 @@ export default function App() {
           setIsDetailModalOpen(false);
           handleEditDriver(driver);
         }}
-        onApprove={handleApproveDriver}
+        onApprove={isSuperAdmin ? handleApproveDriver : undefined}
       />
 
       {/* Expense Modal */}

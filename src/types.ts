@@ -308,6 +308,19 @@ export interface AuthSession {
   lastLogin: string;
 }
 
+/** A manager's driver/uniform change; the live driver record is untouched until Level 1 approves it. */
+export interface DriverChangeRequest {
+  id: string;
+  type: 'driver_create' | 'driver_update';
+  status: 'pending' | 'approved' | 'rejected';
+  driver: Driver;
+  submittedBy: Pick<AuthSession, 'id' | 'username' | 'displayName'>;
+  createdAt: string;
+  reviewedAt?: string;
+  reviewedBy?: Pick<AuthSession, 'id' | 'username' | 'displayName'>;
+  reviewNote?: string;
+}
+
 // Backward compatibility alias
 export type AdminUser = AuthSession;
 

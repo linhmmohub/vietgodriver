@@ -36,6 +36,7 @@ interface DriverListProps {
   onViewDriver: (driver: Driver) => void;
   onAddNewDriver: () => void;
   onApproveDriver?: (driver: Driver) => void;
+  canDelete?: boolean;
   driverWorkflowSettings?: DriverWorkflowSettings;
 }
 
@@ -60,6 +61,7 @@ export const DriverList: React.FC<DriverListProps> = ({
   onViewDriver,
   onAddNewDriver,
   onApproveDriver,
+  canDelete = false,
   driverWorkflowSettings,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -609,7 +611,7 @@ export const DriverList: React.FC<DriverListProps> = ({
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
 
-                  <button
+                  {canDelete && <button
                     onClick={() => {
                       if (window.confirm(`Xóa tài xế ${driver.name} (${driver.code}) khỏi hệ thống?`)) {
                         onDeleteDriver(driver.id);
@@ -619,7 +621,7 @@ export const DriverList: React.FC<DriverListProps> = ({
                     title="Xóa tài xế"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  </button>}
                 </div>
 
               </div>
@@ -879,7 +881,7 @@ export const DriverList: React.FC<DriverListProps> = ({
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button
+                          {canDelete && <button
                             onClick={() => {
                               if (window.confirm(`Bạn có chắc muốn xóa tài xế ${driver.name} (${driver.code})?`)) {
                                 onDeleteDriver(driver.id);
@@ -889,7 +891,7 @@ export const DriverList: React.FC<DriverListProps> = ({
                             className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </button>
+                          </button>}
                         </div>
                       </td>
                     </tr>

@@ -8,7 +8,7 @@ import {
   ShieldCheck, 
   AlertCircle, 
   Sparkles, 
-  Shirt, 
+  Radio,
   ArrowRight,
   Shield,
   UserCheck
@@ -25,7 +25,7 @@ interface AdminLockScreenProps {
 export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
   onLoginSuccess,
   onOpenDriverCheckin,
-  appName = 'Quản Lý Đồng Phục & Chi Tiêu',
+  appName = 'Hệ Thống Quản Lý Điểm Danh Tài Xế VietGo',
 }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -61,13 +61,13 @@ export const AdminLockScreen: React.FC<AdminLockScreenProps> = ({
         {/* Brand identity */}
         <div className="text-center mb-6">
           <div className="inline-flex h-16 w-16 rounded-3xl bg-amber-500/20 border border-amber-500/30 items-center justify-center text-amber-400 shadow-xl mb-3.5">
-            <Shirt className="h-8 w-8" />
+            <Radio className="h-8 w-8" />
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
             {appName}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Hệ thống nội bộ: Quản lý cấp phát Mũ/Áo theo Size & Sổ chi tiêu dòng tiền
+            Hệ thống nội bộ: Điểm danh, điều phối ca trực, theo dõi hiệu suất và GPS tài xế VietGo
           </p>
         </div>
 

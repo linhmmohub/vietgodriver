@@ -25,7 +25,8 @@ import {
   DriverAttendanceEvent,
   AttendanceSettings,
   DriverLiveStatus,
-  DriverRoutePoint
+  DriverRoutePoint,
+  DriverChangeRequest
 } from '../types';
 import { DEFAULT_SUPER_ADMIN, DEFAULT_STAFF_USER, DEFAULT_AUTH_SETTINGS } from '../utils/auth';
 import { 
@@ -43,6 +44,7 @@ const ATTENDANCE_COLLECTION = 'driver_attendance';
 const ATTENDANCE_EVENTS_COLLECTION = 'driver_attendance_events';
 const DRIVER_LIVE_STATUS_COLLECTION = 'driver_live_status';
 const DRIVER_LIVE_ROUTES_COLLECTION = 'driver_live_routes';
+const DRIVER_CHANGE_REQUESTS_COLLECTION = 'driver_change_requests';
 const USERS_COLLECTION = 'system_users';
 const AUDIT_LOGS_COLLECTION = 'audit_logs';
 const EQUIPMENT_COLLECTION = 'equipment_categories';
@@ -307,6 +309,15 @@ export function subscribeCloudAttendanceEvents(callback: (events: DriverAttendan
   }, (error) => console.error('Cloud attendance-event sync error:', error));
 }
 
+/** Manager requests are a separate immutable queue until Level 1 makes a decision. */
+export function subscribeCloudDriverChangeRequests(callback: (requests: DriverChangeRequest[]) => void) {
+  return onSnapshot(collection(db, DRIVER_CHANGE_REQUESTS_COLLECTION), (snapshot) => {
+    const list = snapshot.docs.map(docSnap => ({ ...docSnap.data(), id: docSnap.id } as DriverChangeRequest));
+    list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    callback(list);
+  }, (error) => console.error('Cloud driver-change request sync error:', error));
+}
+
 /** Live presence is intentionally a separate collection from attendance. */
 export function subscribeCloudDriverLiveStatus(callback: (statuses: DriverLiveStatus[]) => void) {
   return onSnapshot(collection(db, DRIVER_LIVE_STATUS_COLLECTION), (snapshot) => {
@@ -498,6 +509,16 @@ export async function saveDriverRoutePointToCloud(point: DriverRoutePoint): Prom
     return true;
   } catch (err) {
     console.error('Error saving driver route point to cloud:', err);
+    return false;
+  }
+}
+
+export async function saveDriverChangeRequestToCloud(request: DriverChangeRequest): Promise<boolean> {
+  try {
+    await setDoc(doc(db, DRIVER_CHANGE_REQUESTS_COLLECTION, request.id), request);
+    return true;
+  } catch (err) {
+    console.error('Error saving driver-change request to cloud:', err);
     return false;
   }
 }
