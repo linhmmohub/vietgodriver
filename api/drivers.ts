@@ -1,7 +1,6 @@
-import type { DocumentData } from 'firebase-admin/firestore';
-import { getDriverApiDb } from './_firebaseAdmin';
-
 declare const process: { env: Record<string, string | undefined> };
+
+type DocumentData = Record<string, unknown>;
 
 type AttendanceStatus = 'on_duty' | 'standby' | 'off_duty' | 'emergency_leave';
 type DirectoryStatus = AttendanceStatus | 'not_checked_in';
@@ -86,6 +85,10 @@ export default {
     }
 
     try {
+      // Load the Admin SDK only after authentication. This keeps a Firebase
+      // configuration issue from preventing the function from returning a
+      // safe HTTP error to unauthenticated requests.
+      const { getDriverApiDb } = await import('./_firebaseAdmin');
       const db = getDriverApiDb();
       const [driversSnapshot, attendanceSnapshot, liveSnapshot] = await Promise.all([
         db.collection('drivers').get(),
