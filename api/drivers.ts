@@ -1,3 +1,5 @@
+import { getDriverApiDb } from './firebaseAdmin';
+
 declare const process: { env: Record<string, string | undefined> };
 
 type DocumentData = Record<string, unknown>;
@@ -85,10 +87,6 @@ export default {
     }
 
     try {
-      // Load the Admin SDK only after authentication. This keeps a Firebase
-      // configuration issue from preventing the function from returning a
-      // safe HTTP error to unauthenticated requests.
-      const { getDriverApiDb } = await import('./_firebaseAdmin');
       const db = getDriverApiDb();
       const [driversSnapshot, attendanceSnapshot, liveSnapshot] = await Promise.all([
         db.collection('drivers').get(),
