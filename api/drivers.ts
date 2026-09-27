@@ -1,11 +1,12 @@
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
 
 declare const process: { env: Record<string, string | undefined> };
 
 type DocumentData = Record<string, unknown>;
 const firebaseAppName = 'vietgo-driver-api';
+const fallbackFirebaseProjectId = 'gen-lang-client-0066375107';
+const fallbackFirestoreDatabaseId = 'ai-studio-qunlngphctix-2667f728-4790-41aa-aadc-7310fd7473fa';
 
 const getServiceAccount = () => {
   const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
@@ -29,7 +30,7 @@ const getServiceAccount = () => {
   }
 
   return {
-    project_id: process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId,
+    project_id: process.env.FIREBASE_PROJECT_ID || fallbackFirebaseProjectId,
     client_email: clientEmail,
     private_key: privateKey,
   };
@@ -37,7 +38,7 @@ const getServiceAccount = () => {
 
 const getDriverApiDb = () => {
   const serviceAccount = getServiceAccount();
-  const projectId = serviceAccount.project_id || process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId;
+  const projectId = serviceAccount.project_id || process.env.FIREBASE_PROJECT_ID || fallbackFirebaseProjectId;
   const app = getApps().find(item => item.name === firebaseAppName) || initializeApp({
     credential: cert({
       projectId,
@@ -47,7 +48,7 @@ const getDriverApiDb = () => {
     projectId,
   }, firebaseAppName);
 
-  const databaseId = process.env.FIREBASE_DATABASE_ID || firebaseConfig.firestoreDatabaseId || '(default)';
+  const databaseId = process.env.FIREBASE_DATABASE_ID || fallbackFirestoreDatabaseId || '(default)';
   return getFirestore(app, databaseId);
 };
 
